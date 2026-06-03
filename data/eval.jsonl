@@ -1,0 +1,5 @@
+{"question": "When do we deploy to production?", "relevant_doc_ids": ["deploys"]}
+{"question": "How many approvals does a billing change need?", "relevant_doc_ids": ["code-review"]}
+{"question": "How long is an on-call rotation?", "relevant_doc_ids": ["oncall"]}
+{"question": "How many vacation days carry over?", "relevant_doc_ids": ["vacation"]}
+{"question": "When is a postmortem required?", "relevant_doc_ids": ["incidents"]}
