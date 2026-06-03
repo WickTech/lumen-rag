@@ -1,16 +1,21 @@
-"""FastAPI surface for the RAG engine: ingest, query, stats, health."""
+"""FastAPI surface for the RAG engine: ingest, query, stream, stats, health."""
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..config import settings
 from ..engine import RagEngine
+from ..llm import answer_stream
 
-engine: RagEngine
+# Replaced by lifespan; initialised here so the name always exists (e.g. in tests).
+engine: RagEngine = RagEngine()
 
 
 @asynccontextmanager
@@ -73,3 +78,26 @@ def query(req: QueryRequest) -> dict:
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
     result = engine.query(req.question, k=req.k)
     return {"answer": result.text, "citations": result.citations}
+
+
+@app.post("/query/stream")
+async def query_stream(req: QueryRequest) -> StreamingResponse:
+    """Stream the answer as Server-Sent Events.
+
+    Each event is ``data: <json>\\n\\n``. Token events carry ``{"token": "..."}``
+    and the final event carries ``{"done": true, "citations": [...]}``.
+    """
+    if len(engine.store) == 0:
+        raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
+
+    chunks = engine.retriever.retrieve(req.question, k=req.k)
+
+    async def _sse() -> AsyncGenerator[str, None]:
+        for token, citations in answer_stream(req.question, chunks):
+            if citations is not None:
+                payload = json.dumps({"done": True, "citations": citations})
+            else:
+                payload = json.dumps({"token": token})
+            yield f"data: {payload}\n\n"
+
+    return StreamingResponse(_sse(), media_type="text/event-stream")

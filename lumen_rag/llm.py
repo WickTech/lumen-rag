@@ -67,3 +67,45 @@ def answer(question: str, chunks: list[ScoredChunk]) -> Answer:
         temperature=0.1,
     )
     return Answer(resp.choices[0].message.content or "", citations)
+
+
+def answer_stream(question: str, chunks: list[ScoredChunk]):
+    """Yield (token: str, citations: list | None) tuples.
+
+    The final tuple carries citations; all prior tuples have citations=None.
+    Callers can use this to build an SSE stream without buffering the full answer.
+    """
+    if not chunks:
+        yield ("I don't have any indexed context to answer that.", _citations(chunks))
+        return
+
+    citations = _citations(chunks)
+
+    if settings.offline:
+        body = " ".join(f"{c.chunk.text} [{i + 1}]" for i, c in enumerate(chunks[:2]))
+        full = f"(offline extractive answer) {body}"
+        for word in full.split(" "):
+            yield (word + " ", None)
+        yield ("", citations)
+        return
+
+    from openai import OpenAI
+
+    client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+    stream = client.chat.completions.create(
+        model=settings.chat_model,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": f"Context:\n{_format_context(chunks)}\n\nQuestion: {question}",
+            },
+        ],
+        temperature=0.1,
+        stream=True,
+    )
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content or ""
+        if delta:
+            yield (delta, None)
+    yield ("", citations)
