@@ -2,7 +2,7 @@
 
 > A small, **transparent, and *evaluated*** Retrieval-Augmented Generation engine. Ingest documents, retrieve with vector search, answer with citations — and **measure retrieval quality** with a proper IR metric suite.
 
-[![CI](https://github.com/yourname/lumen-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/yourname/lumen-rag/actions/workflows/ci.yml)
+[![CI](https://github.com/WickTech/lumen-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/WickTech/lumen-rag/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
@@ -16,6 +16,18 @@ reranking — instead of vibes.
 > embedder and an extractive answerer, so the full pipeline — including the eval
 > suite — runs in CI with zero secrets. Add `OPENAI_API_KEY` for real embeddings
 > and generated answers.
+
+---
+
+## ✅ Current Status
+
+| | |
+|---|---|
+| **Tests** | 14/14 passing — chunker, vector store, IR metrics, end-to-end |
+| **CI** | GitHub Actions: lint (ruff) → pytest → live eval pass on every push |
+| **Python** | 3.10 and 3.12 tested |
+| **Offline** | Full pipeline runs with zero API keys or network access |
+| **Deployment** | `Dockerfile` ready; FastAPI server on port 8000 |
 
 ---
 
@@ -70,7 +82,7 @@ lumen_rag/
 ## 🚀 Quick start
 
 ```bash
-git clone https://github.com/yourname/lumen-rag && cd lumen-rag
+git clone https://github.com/WickTech/lumen-rag && cd lumen-rag
 pip install -e ".[dev]"            # add ,openai for real embeddings
 
 # Index the sample corpus and ask a question (works offline)
@@ -127,6 +139,23 @@ ruff check .       # lint
 
 CI runs the suite on Python 3.10 & 3.12 **and** runs a real eval pass on the
 sample corpus on every push.
+
+---
+
+## 🗺️ Roadmap
+
+Features planned for future iterations:
+
+- [ ] **pgvector / Qdrant / Pinecone adapters** — swap the in-memory store for a production vector DB without touching engine callers
+- [ ] **OpenAI `text-embedding-3-small` integration** — drop-in embedder upgrade with benchmarked recall gain
+- [ ] **BM25 hybrid search** — combine sparse keyword scores with dense vectors (Reciprocal Rank Fusion)
+- [ ] **Cross-encoder reranker** — second-stage reranking with a small cross-encoder model for higher precision
+- [ ] **PDF / DOCX / HTML ingestion** — document loaders that extract clean text before chunking
+- [ ] **Streaming answers** — server-sent events on the FastAPI `/query` endpoint
+- [ ] **Multi-tenant namespaces** — isolate document collections per user/team with a namespace key
+- [ ] **Async FastAPI endpoints** — connection-pooled async DB and embedder calls for concurrency
+- [ ] **Regression test suite** — lock eval scores in CI; fail the build if recall@5 drops below threshold
+- [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall
 
 ---
 
