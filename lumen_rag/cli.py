@@ -18,7 +18,8 @@ from .config import settings
 from .engine import RagEngine
 from .eval import evaluate
 from .eval.harness import load_cases
-from .retrieval import Retriever
+from .ingestion.loaders import _LOADERS
+from .retrieval import Retriever, RetrievalMode
 
 app = typer.Typer(help="Lumen RAG — ingest, ask, and evaluate a RAG pipeline.")
 
@@ -34,8 +35,8 @@ def ingest(
     for p in paths:
         path = Path(p)
         if path.is_dir():
-            files.extend(path.rglob("*.md"))
-            files.extend(path.rglob("*.txt"))
+            for ext in _LOADERS:
+                files.extend(path.rglob(f"*{ext}"))
         else:
             files.append(path)
 
@@ -52,10 +53,14 @@ def ingest(
 
 
 @app.command()
-def ask(question: str, k: int = 5) -> None:
+def ask(
+    question: str,
+    k: int = 5,
+    mode: str = typer.Option("hybrid", help="Retrieval mode: vector | bm25 | hybrid"),
+) -> None:
     """Query the index and print an answer with citations."""
     engine = RagEngine.load()
-    result = engine.query(question, k=k)
+    result = engine.query(question, k=k, mode=mode)  # type: ignore[arg-type]
     typer.echo("\n" + result.text + "\n")
     typer.echo("Sources:")
     for c in result.citations:

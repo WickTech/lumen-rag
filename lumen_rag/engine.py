@@ -7,7 +7,7 @@ from .config import settings
 from .embeddings import get_embedder
 from .ingestion import ingest_documents
 from .llm import Answer, answer
-from .retrieval import Retriever
+from .retrieval import Retriever, RetrievalMode
 from .store import VectorStore
 
 
@@ -19,10 +19,11 @@ class RagEngine:
 
     def add_documents(self, documents: list[dict], **kwargs) -> int:
         ingest_documents(documents, store=self.store, embedder=self.embedder, **kwargs)
+        self.retriever._bm25 = None  # invalidate cached BM25 index
         return len(self.store)
 
-    def query(self, question: str, k: int = 5) -> Answer:
-        chunks = self.retriever.retrieve(question, k=k)
+    def query(self, question: str, k: int = 5, mode: RetrievalMode = "hybrid") -> Answer:
+        chunks = self.retriever.retrieve(question, k=k, mode=mode)
         return answer(question, chunks)
 
     # --- persistence -------------------------------------------------------

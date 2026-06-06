@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from ..config import settings
 from ..engine import RagEngine
 from ..llm import answer_stream
+from ..retrieval import RetrievalMode
 
 # Replaced by lifespan; initialised here so the name always exists (e.g. in tests).
 engine: RagEngine = RagEngine()
@@ -52,6 +53,7 @@ class IngestRequest(BaseModel):
 class QueryRequest(BaseModel):
     question: str = Field(min_length=1)
     k: int = Field(default=5, ge=1, le=20)
+    mode: RetrievalMode = "hybrid"
 
 
 @app.get("/health")
@@ -76,7 +78,7 @@ def ingest(req: IngestRequest) -> dict:
 def query(req: QueryRequest) -> dict:
     if len(engine.store) == 0:
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
-    result = engine.query(req.question, k=req.k)
+    result = engine.query(req.question, k=req.k, mode=req.mode)
     return {"answer": result.text, "citations": result.citations}
 
 
@@ -90,7 +92,7 @@ async def query_stream(req: QueryRequest) -> StreamingResponse:
     if len(engine.store) == 0:
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
 
-    chunks = engine.retriever.retrieve(req.question, k=req.k)
+    chunks = engine.retriever.retrieve(req.question, k=req.k, mode=req.mode)
 
     async def _sse() -> AsyncGenerator[str, None]:
         for token, citations in answer_stream(req.question, chunks):

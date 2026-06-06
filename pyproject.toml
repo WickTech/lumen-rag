@@ -18,6 +18,9 @@ dependencies = [
 
 [project.optional-dependencies]
 openai = ["openai>=1.55"]
+pdf = ["pypdf>=4.0"]
+docx = ["python-docx>=1.1"]
+loaders = ["pypdf>=4.0", "python-docx>=1.1"]
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8"]
 
 [project.scripts]

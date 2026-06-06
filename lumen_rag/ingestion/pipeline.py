@@ -7,6 +7,7 @@ from pathlib import Path
 from ..embeddings import Embedder, get_embedder
 from ..store import Chunk, VectorStore
 from .chunker import chunk_text
+from .loaders import _LOADERS, load_file
 
 
 def ingest_documents(
@@ -43,12 +44,6 @@ def ingest_documents(
 
 
 def ingest_paths(paths: list[str | Path], **kwargs) -> VectorStore:
-    """Ingest .txt / .md files from disk."""
-    docs = []
-    for p in paths:
-        path = Path(p)
-        docs.append(
-            {"id": path.stem, "text": path.read_text(encoding="utf-8"),
-             "metadata": {"source": str(path)}}
-        )
+    """Ingest files from disk. Supports .txt, .md, .pdf, .docx, .html, .htm."""
+    docs = [load_file(p) for p in paths]
     return ingest_documents(docs, **kwargs)

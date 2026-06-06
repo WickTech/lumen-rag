@@ -23,8 +23,8 @@ reranking — instead of vibes.
 
 | | |
 |---|---|
-| **Tests** | 14/14 passing — chunker, vector store, IR metrics, end-to-end |
-| **CI** | GitHub Actions: lint (ruff) → pytest → live eval pass on every push |
+| **Tests** | 41/41 passing — chunker, vector store, BM25, RRF, loaders, IR metrics, end-to-end |
+| **CI** | GitHub Actions: lint (ruff) → pytest → eval regression guard on every push |
 | **Python** | 3.10 and 3.12 tested |
 | **Offline** | Full pipeline runs with zero API keys or network access |
 | **Deployment** | `Dockerfile` ready; FastAPI server on port 8000 |
@@ -35,9 +35,12 @@ reranking — instead of vibes.
 
 - **Sentence-aware chunking** with configurable size + overlap.
 - **Exact cosine vector search** in a tiny, persistable store (swap for pgvector/Qdrant without touching callers).
-- **Hybrid reranking** — blends vector similarity with lexical overlap to fix pure-vector misses.
+- **BM25 + Reciprocal Rank Fusion** — true sparse/dense hybrid retrieval; choose `vector`, `bm25`, or `hybrid` mode per query.
 - **Cited answers** — every response carries numbered source citations.
+- **Streaming answers** — Server-Sent Events on `POST /query/stream`.
+- **Multi-format ingestion** — `.txt`, `.md`, `.html`/`.htm` (no extra deps), `.pdf` (`pip install lumen-rag[pdf]`), `.docx` (`pip install lumen-rag[docx]`).
 - **📊 Evaluation harness** — recall@k, precision@k, MRR, nDCG@k, hit-rate over a labelled question set.
+- **Eval regression guard** — `scripts/check_eval.py` enforces minimum score thresholds in CI; the build fails if retrieval quality drops.
 - **Three interfaces** — Python API, Typer CLI, and a FastAPI server.
 
 ---
@@ -86,11 +89,12 @@ git clone https://github.com/WickTech/lumen-rag && cd lumen-rag
 pip install -e ".[dev]"            # add ,openai for real embeddings
 
 # Index the sample corpus and ask a question (works offline)
-lumen ingest data/docs
+lumen ingest data/docs                                 # picks up .txt, .md, .html, .pdf, .docx
 lumen ask "How many approvals does a billing change need?"
+lumen ask "When do we deploy?" --mode bm25             # vector | bm25 | hybrid
 
-# Measure retrieval quality against a labelled set
-lumen eval data/eval.jsonl --k 3
+# Measure retrieval quality and enforce score thresholds
+python scripts/check_eval.py data/eval.jsonl --k 3 --mode hybrid
 ```
 
 Example eval output:
@@ -144,17 +148,14 @@ sample corpus on every push.
 
 ## 🗺️ Roadmap
 
-Features planned for future iterations:
-
+- [x] **BM25 hybrid search** — sparse + dense fusion via Reciprocal Rank Fusion; `vector | bm25 | hybrid` mode per query
+- [x] **PDF / DOCX / HTML ingestion** — document loaders with clean text extraction
+- [x] **Streaming answers** — server-sent events on `POST /query/stream`
+- [x] **Eval regression guard** — `scripts/check_eval.py` in CI; build fails if recall drops
 - [ ] **pgvector / Qdrant / Pinecone adapters** — swap the in-memory store for a production vector DB without touching engine callers
-- [ ] **OpenAI `text-embedding-3-small` integration** — drop-in embedder upgrade with benchmarked recall gain
-- [ ] **BM25 hybrid search** — combine sparse keyword scores with dense vectors (Reciprocal Rank Fusion)
 - [ ] **Cross-encoder reranker** — second-stage reranking with a small cross-encoder model for higher precision
-- [ ] **PDF / DOCX / HTML ingestion** — document loaders that extract clean text before chunking
-- [ ] **Streaming answers** — server-sent events on the FastAPI `/query` endpoint
 - [ ] **Multi-tenant namespaces** — isolate document collections per user/team with a namespace key
 - [ ] **Async FastAPI endpoints** — connection-pooled async DB and embedder calls for concurrency
-- [ ] **Regression test suite** — lock eval scores in CI; fail the build if recall@5 drops below threshold
 - [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall
 
 ---

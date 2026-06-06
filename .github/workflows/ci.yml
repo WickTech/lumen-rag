@@ -22,7 +22,7 @@ jobs:
         run: ruff check lumen_rag tests
       - name: Test (offline mode — no API key)
         run: pytest -q
-      - name: Smoke eval on sample corpus
+      - name: Eval regression guard
         run: |
           lumen ingest data/docs
-          lumen eval data/eval.jsonl --k 3
+          python scripts/check_eval.py data/eval.jsonl --k 3 --mode hybrid
