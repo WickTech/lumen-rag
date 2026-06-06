@@ -50,34 +50,48 @@ reranking — instead of vibes.
 ```mermaid
 flowchart TD
     subgraph Ingest
-        D[Documents] --> C[Sentence-aware chunker]
+        F[Files — txt/md/html/pdf/docx] --> LD[Document loaders]
+        LD --> C[Sentence-aware chunker]
         C --> E1[Embedder]
         E1 --> VS[(Vector store)]
+        C --> BM25[(BM25 index)]
     end
     subgraph Query
         Q[Question] --> E2[Embedder]
-        E2 --> S[Cosine search]
-        VS --> S
-        S --> RR[Hybrid reranker]
-        RR --> L[LLM answerer]
+        E2 --> DS[Cosine search]
+        VS --> DS
+        Q --> SS[BM25 search]
+        BM25 --> SS
+        DS --> RRF[Reciprocal Rank Fusion]
+        SS --> RRF
+        RRF --> L[LLM answerer]
         L --> A[Answer + citations]
     end
     subgraph Evaluate
         QS[Labelled Q&A set] --> H[Eval harness]
-        H --> S
+        H --> RRF
         H --> M[recall · precision · MRR · nDCG · hit-rate]
+        M --> G[Regression guard — CI fails if scores drop]
     end
 ```
 
 ```
 lumen_rag/
-├── ingestion/   chunker + pipeline (docs → chunks → vectors)
-├── store.py     persistable cosine vector store
-├── retrieval/   query embedding + hybrid reranking
-├── llm.py       grounded, citation-enforcing answerer
-├── eval/        ⭐ IR metrics + evaluation harness
-├── api/         FastAPI app
-└── cli.py       `lumen ingest | ask | eval | serve`
+├── ingestion/
+│   ├── loaders.py   txt / md / html / pdf / docx → {"id","text","metadata"}
+│   ├── chunker.py   sentence-aware chunking with overlap
+│   └── pipeline.py  docs → chunks → embeddings → vector store
+├── store.py         persistable cosine vector store (.lumen_index/)
+├── retrieval/
+│   ├── bm25.py      BM25Index + reciprocal_rank_fusion()
+│   └── retriever.py Retriever(mode=vector|bm25|hybrid)
+├── embeddings.py    HashingEmbedder (offline) + OpenAIEmbedder
+├── llm.py           grounded answerer with citations; offline extractive fallback
+├── eval/            ⭐ IR metrics + evaluation harness
+├── api/             FastAPI — /ingest /query /query/stream /health /stats
+├── cli.py           lumen ingest | ask | eval | serve
+└── scripts/
+    └── check_eval.py  eval regression guard (enforces score thresholds)
 ```
 
 ---
@@ -117,7 +131,7 @@ curl localhost:8000/health
 curl -X POST localhost:8000/ingest -H 'content-type: application/json' \
   -d '{"documents":[{"id":"d1","text":"We deploy at 4pm on weekdays."}]}'
 curl -X POST localhost:8000/query  -H 'content-type: application/json' \
-  -d '{"question":"When do we deploy?","k":3}'
+  -d '{"question":"When do we deploy?","k":3,"mode":"hybrid"}'
 ```
 
 Interactive docs at `http://localhost:8000/docs`.
@@ -137,12 +151,12 @@ print(engine.query("How much vacation do I get?").text)
 ## 🧪 Testing
 
 ```bash
-pytest -q          # unit + end-to-end, all offline
-ruff check .       # lint
+pytest -q                                                   # 41 tests, all offline
+ruff check .                                                # lint
+python scripts/check_eval.py data/eval.jsonl --k 3          # eval regression guard
 ```
 
-CI runs the suite on Python 3.10 & 3.12 **and** runs a real eval pass on the
-sample corpus on every push.
+CI runs on Python 3.10 & 3.12: lint → pytest → `check_eval.py` (enforces recall@k ≥ 0.80, hit\_rate ≥ 0.80, mrr ≥ 0.70). The build fails if scores drop.
 
 ---
 
