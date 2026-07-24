@@ -1,5 +1,19 @@
-{"question": "When do we deploy to production?", "relevant_doc_ids": ["deploys"]}
-{"question": "How many approvals does a billing change need?", "relevant_doc_ids": ["code-review"]}
-{"question": "How long is an on-call rotation?", "relevant_doc_ids": ["oncall"]}
-{"question": "How many vacation days carry over?", "relevant_doc_ids": ["vacation"]}
-{"question": "When is a postmortem required?", "relevant_doc_ids": ["incidents"]}
+{"question": "When do we deploy to production?", "relevant_doc_ids": ["deploys-ops"]}
+{"question": "How many approvals does a billing change need?", "relevant_doc_ids": ["code-security"]}
+{"question": "How long is an on-call rotation?", "relevant_doc_ids": ["deploys-ops"]}
+{"question": "How many vacation days carry over?", "relevant_doc_ids": ["people-ops"]}
+{"question": "When is a postmortem required?", "relevant_doc_ids": ["deploys-ops", "code-security"]}
+{"question": "How long do OAuth tokens last before they need to be refreshed?", "relevant_doc_ids": ["support-postmortem"]}
+{"question": "How fast do I need to report a suspected credential leak?", "relevant_doc_ids": ["code-security"]}
+{"question": "What's the monthly stipend for home office supplies?", "relevant_doc_ids": ["people-ops"]}
+{"question": "How many core hours must remote engineers overlap with their team?", "relevant_doc_ids": ["people-ops"]}
+{"question": "How many interviewers need to agree for a hiring offer?", "relevant_doc_ids": ["people-ops"]}
+{"question": "How often do performance reviews happen?", "relevant_doc_ids": ["people-ops"]}
+{"question": "How long are security audit logs kept?", "relevant_doc_ids": ["data-eng"]}
+{"question": "What does a postmortem document need to include?", "relevant_doc_ids": ["support-postmortem"]}
+{"question": "What's the rollout sequence for a new feature flag?", "relevant_doc_ids": ["data-eng"]}
+{"question": "How do you migrate a database schema without downtime?", "relevant_doc_ids": ["data-eng"]}
+{"question": "How long is an API version supported after the next version ships?", "relevant_doc_ids": ["data-eng"]}
+{"question": "What's the first-response SLA for premium support customers?", "relevant_doc_ids": ["support-postmortem"]}
+{"question": "What's the recovery time objective for the primary database?", "relevant_doc_ids": ["deploys-ops"]}
+{"question": "How often do production database credentials rotate?", "relevant_doc_ids": ["code-security"]}

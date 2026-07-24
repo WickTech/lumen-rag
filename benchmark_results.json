@@ -1,0 +1,36 @@
+{
+  "k": 5,
+  "n_cases": 19,
+  "results": [
+    {
+      "config": "naive (1 chunk/doc, vector-only)",
+      "k": 5,
+      "n_cases": 19,
+      "recall@k": 0.9737,
+      "precision@k": 0.2,
+      "mrr": 0.9342,
+      "ndcg@k": 0.9418,
+      "hit_rate": 1.0
+    },
+    {
+      "config": "+ sentence chunking (vector-only)",
+      "k": 5,
+      "n_cases": 19,
+      "recall@k": 0.9737,
+      "precision@k": 0.2,
+      "mrr": 0.9737,
+      "ndcg@k": 0.9677,
+      "hit_rate": 1.0
+    },
+    {
+      "config": "+ hybrid (BM25 + RRF)",
+      "k": 5,
+      "n_cases": 19,
+      "recall@k": 0.9737,
+      "precision@k": 0.2,
+      "mrr": 0.9737,
+      "ndcg@k": 0.9677,
+      "hit_rate": 1.0
+    }
+  ]
+}

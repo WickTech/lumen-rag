@@ -2,18 +2,25 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from ..config import settings
 from ..engine import RagEngine
+from ..eval import evaluate
+from ..eval.harness import load_cases
+from ..ingestion.loaders import _LOADERS, load_file
 from ..llm import answer_stream
-from ..retrieval import RetrievalMode
+from ..retrieval import Retriever, RetrievalMode
+
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 # Replaced by lifespan; initialised here so the name always exists (e.g. in tests).
 engine: RagEngine = RagEngine()
@@ -37,6 +44,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+if _STATIC_DIR.is_dir():
+    app.mount("/demo", StaticFiles(directory=_STATIC_DIR, html=True), name="demo")
+
 
 class Document(BaseModel):
     id: str | None = None
@@ -54,6 +64,13 @@ class QueryRequest(BaseModel):
     question: str = Field(min_length=1)
     k: int = Field(default=5, ge=1, le=20)
     mode: RetrievalMode = "hybrid"
+
+
+@app.get("/")
+def root():
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url="/demo/")
 
 
 @app.get("/health")
@@ -80,6 +97,58 @@ def query(req: QueryRequest) -> dict:
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
     result = engine.query(req.question, k=req.k, mode=req.mode)
     return {"answer": result.text, "citations": result.citations}
+
+
+@app.post("/ingest/upload")
+async def ingest_upload(files: list[UploadFile], chunk_size: int = 120, overlap: int = 20) -> dict:
+    docs = []
+    for f in files:
+        suffix = Path(f.filename or "").suffix.lower()
+        if suffix not in _LOADERS:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {f.filename}")
+        data = await f.read()
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
+            tmp.write(data)
+            tmp.flush()
+            doc = load_file(tmp.name)
+            doc["id"] = Path(f.filename).stem
+            doc["metadata"]["source"] = f.filename
+            docs.append(doc)
+    total = engine.add_documents(docs, chunk_size=chunk_size, overlap=overlap)
+    engine.save()
+    return {"files_indexed": len(docs), "chunks_indexed": total}
+
+
+@app.post("/ingest/sample")
+def ingest_sample() -> dict:
+    sample_dir = Path(__file__).resolve().parent.parent.parent / "data" / "docs"
+    if not sample_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Bundled sample corpus not found.")
+    files = sorted(p for p in sample_dir.iterdir() if p.suffix.lower() in _LOADERS)
+    docs = [load_file(p) for p in files]
+    total = engine.add_documents(docs)
+    engine.save()
+    return {"files_indexed": len(docs), "chunks_indexed": total}
+
+
+@app.post("/reset")
+def reset() -> dict:
+    global engine
+    engine = RagEngine()
+    engine.save()
+    return {"status": "reset"}
+
+
+@app.get("/eval")
+def run_eval(dataset: str = "data/eval.jsonl", k: int = 5) -> dict:
+    path = Path(dataset)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Eval set not found: {dataset}")
+    if len(engine.store) == 0:
+        raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
+    cases = load_cases(path)
+    report = evaluate(Retriever(engine.store, engine.embedder), cases, k=k)
+    return report.as_dict() | {"per_case": report.per_case}
 
 
 @app.post("/query/stream")

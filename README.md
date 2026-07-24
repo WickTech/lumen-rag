@@ -27,7 +27,24 @@ reranking — instead of vibes.
 | **CI** | GitHub Actions: lint (ruff) → pytest → eval regression guard on every push |
 | **Python** | 3.10 and 3.12 tested |
 | **Offline** | Full pipeline runs with zero API keys or network access |
-| **Deployment** | `Dockerfile` ready; FastAPI server on port 8000 |
+| **Deployment** | `Dockerfile` ready; FastAPI server on port 8000; [hosted demo on HF Spaces](https://huggingface.co/spaces/WickTech/lumen-rag) |
+
+---
+
+## 🎮 Live demo
+
+**[Try it hosted on Hugging Face Spaces →](https://huggingface.co/spaces/WickTech/lumen-rag)**
+
+Upload your own `.txt`/`.md`/`.html`/`.pdf`/`.docx` files (or load the bundled
+sample corpus), ask questions against them, and watch retrieval quality
+(recall@k, MRR, nDCG@k) render live from the eval harness — no signup, no API
+key, runs entirely on the offline hashing embedder.
+
+Run it locally instead:
+
+```bash
+lumen serve && open http://localhost:8000
+```
 
 ---
 
@@ -39,6 +56,7 @@ reranking — instead of vibes.
 - **Cited answers** — every response carries numbered source citations.
 - **Streaming answers** — Server-Sent Events on `POST /query/stream`.
 - **Multi-format ingestion** — `.txt`, `.md`, `.html`/`.htm` (no extra deps), `.pdf` (`pip install lumen-rag[pdf]`), `.docx` (`pip install lumen-rag[docx]`).
+- **Interactive demo UI** — upload docs, ask questions, and watch eval metrics render live at `/` (served by the FastAPI app, no separate frontend build).
 - **📊 Evaluation harness** — recall@k, precision@k, MRR, nDCG@k, hit-rate over a labelled question set.
 - **Eval regression guard** — `scripts/check_eval.py` enforces minimum score thresholds in CI; the build fails if retrieval quality drops.
 - **Three interfaces** — Python API, Typer CLI, and a FastAPI server.
@@ -88,7 +106,8 @@ lumen_rag/
 ├── embeddings.py    HashingEmbedder (offline) + OpenAIEmbedder
 ├── llm.py           grounded answerer with citations; offline extractive fallback
 ├── eval/            ⭐ IR metrics + evaluation harness
-├── api/             FastAPI — /ingest /query /query/stream /health /stats
+├── api/             FastAPI — /ingest /ingest/upload /query /query/stream /eval /health /stats
+│   └── static/      interactive demo UI, served at /
 ├── cli.py           lumen ingest | ask | eval | serve
 └── scripts/
     └── check_eval.py  eval regression guard (enforces score thresholds)
@@ -114,12 +133,12 @@ python scripts/check_eval.py data/eval.jsonl --k 3 --mode hybrid
 Example eval output:
 
 ```
-  Retrieval eval — 5 cases @ k=3
+  Retrieval eval — 19 cases @ k=3
   ----------------------------------
-  recall@k       1.0000
+  recall@k       0.9737
   precision@k    0.3333
-  mrr            1.0000
-  ndcg@k         1.0000
+  mrr            0.9737
+  ndcg@k         0.9677
   hit_rate       1.0000
 ```
 
@@ -157,6 +176,35 @@ python scripts/check_eval.py data/eval.jsonl --k 3          # eval regression gu
 ```
 
 CI runs on Python 3.10 & 3.12: lint → pytest → `check_eval.py` (enforces recall@k ≥ 0.80, hit\_rate ≥ 0.80, mrr ≥ 0.70). The build fails if scores drop.
+
+---
+
+## 📊 Benchmarks — what chunking and hybrid retrieval actually buy you
+
+Measured with `scripts/benchmark.py` on the bundled 7-document / 19-question
+reference corpus (`data/docs` + `data/eval.jsonl`), offline hashing embedder,
+k=5. Reproduce with `python scripts/benchmark.py`.
+
+| Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
+|---|---|---|---|---|---|
+| naive (1 chunk/doc, vector-only) | 0.97 | 0.20 | 0.93 | 0.94 | 1.00 |
+| + sentence chunking (vector-only) | 0.97 | 0.20 | **0.97** | **0.97** | 1.00 |
+| + hybrid (BM25 + RRF) | 0.97 | 0.20 | **0.97** | **0.97** | 1.00 |
+
+Recall and hit-rate are already saturated on this reference corpus (the right
+document almost always makes the top 5), so the honest signal is in
+**ranking quality**: sentence-aware chunking lifts MRR and nDCG@5 from 0.93 →
+0.97 by fixing a real failure mode — a long, multi-topic document's
+whole-document embedding gets diluted by unrelated sections, so the correct
+doc sometimes ranks 2nd or 3rd instead of 1st. Chunking isolates the
+answer-bearing passage so it wins on its own merits.
+
+Hybrid ties chunked-vector here because the offline hashing embedder is
+itself a bag-of-words signal, close in kind to BM25 — the two rankers agree.
+Hybrid's real edge (catching exact rare-term/numeric matches a semantic
+embedding under-weights) shows up more with `OPENAI_API_KEY` set and on
+noisier, larger corpora; see [`docs/case-study.md`](docs/case-study.md) for
+the full writeup and methodology.
 
 ---
 

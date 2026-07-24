@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lumen RAG — Live Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0b0d12; --panel:#12151c; --border:#232733; --text:#e6e8ec; --muted:#8a8f9c; --accent:#5b8cff; --good:#4ade80; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:24px 32px; border-bottom:1px solid var(--border); }
+  header h1 { margin:0 0 4px; font-size:22px; }
+  header p { margin:0; color:var(--muted); font-size:13px; }
+  main { max-width:980px; margin:0 auto; padding:24px 32px 64px; display:grid; gap:24px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px; }
+  .card h2 { margin:0 0 12px; font-size:15px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  input[type=text] { flex:1; min-width:200px; background:#0e1117; border:1px solid var(--border); color:var(--text); padding:10px 12px; border-radius:6px; font-size:14px; }
+  input[type=file] { color:var(--muted); font-size:13px; }
+  select { background:#0e1117; border:1px solid var(--border); color:var(--text); padding:9px; border-radius:6px; }
+  button { background:var(--accent); color:#fff; border:none; padding:10px 16px; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600; }
+  button:hover { opacity:.9; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+  button:disabled { opacity:.5; cursor:default; }
+  .answer { white-space:pre-wrap; margin-top:14px; padding:14px; background:#0e1117; border-radius:6px; border:1px solid var(--border); min-height:24px; }
+  .citation { display:inline-block; margin:2px 6px 2px 0; padding:3px 8px; background:#1a2030; border-radius:4px; font-size:12px; color:var(--muted); }
+  .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:12px; margin-top:8px; }
+  .metric { background:#0e1117; border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; }
+  .metric .val { font-size:22px; font-weight:700; color:var(--good); }
+  .metric .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; margin-top:2px; }
+  .status { font-size:13px; color:var(--muted); margin-top:8px; }
+  .status.err { color:#f87171; }
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:24px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔦 Lumen RAG — Live Demo</h1>
+  <p>Upload docs → hybrid retrieval (vector + BM25) → cited answer. Runs 100% offline.</p>
+</header>
+<main>
+
+  <div class="card">
+    <h2>1 · Load documents</h2>
+    <div class="row">
+      <button id="loadSample">Load sample corpus (5 policy docs)</button>
+      <span style="color:var(--muted)">or</span>
+      <input type="file" id="fileInput" multiple accept=".txt,.md,.html,.htm,.pdf,.docx">
+      <button id="uploadBtn" class="ghost">Upload</button>
+      <button id="resetBtn" class="ghost">Reset index</button>
+    </div>
+    <div class="status" id="ingestStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Ask</h2>
+    <div class="row">
+      <input type="text" id="question" placeholder="e.g. How long is an on-call rotation?">
+      <select id="mode">
+        <option value="hybrid" selected>hybrid</option>
+        <option value="vector">vector</option>
+        <option value="bm25">bm25</option>
+      </select>
+      <button id="askBtn">Ask</button>
+    </div>
+    <div class="answer" id="answer">Answer will appear here.</div>
+    <div id="citations"></div>
+  </div>
+
+  <div class="card">
+    <h2>3 · Retrieval quality (recall@k on the labelled sample eval set)</h2>
+    <div class="row">
+      <button id="evalBtn">Run eval</button>
+    </div>
+    <div class="metrics" id="metrics"></div>
+    <div class="status" id="evalStatus"></div>
+  </div>
+
+</main>
+<footer>
+  <a href="https://github.com/WickTech/lumen-rag" target="_blank">Source on GitHub</a> ·
+  API docs at <a href="/docs">/docs</a>
+</footer>
+<script>
+const $ = id => document.getElementById(id);
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail || res.statusText);
+  return body;
+}
+
+$('loadSample').onclick = async () => {
+  $('ingestStatus').textContent = 'Loading sample corpus…';
+  $('ingestStatus').className = 'status';
+  try {
+    const r = await api('/ingest/sample', { method: 'POST' });
+    $('ingestStatus').textContent = `Indexed ${r.files_indexed} file(s) → ${r.chunks_indexed} chunks.`;
+  } catch (e) {
+    $('ingestStatus').textContent = 'Error: ' + e.message;
+    $('ingestStatus').className = 'status err';
+  }
+};
+
+$('uploadBtn').onclick = async () => {
+  const files = $('fileInput').files;
+  if (!files.length) { $('ingestStatus').textContent = 'Pick file(s) first.'; return; }
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  $('ingestStatus').textContent = 'Uploading + indexing…';
+  $('ingestStatus').className = 'status';
+  try {
+    const r = await api('/ingest/upload', { method: 'POST', body: fd });
+    $('ingestStatus').textContent = `Indexed ${r.files_indexed} file(s) → ${r.chunks_indexed} chunks.`;
+  } catch (e) {
+    $('ingestStatus').textContent = 'Error: ' + e.message;
+    $('ingestStatus').className = 'status err';
+  }
+};
+
+$('resetBtn').onclick = async () => {
+  await api('/reset', { method: 'POST' });
+  $('ingestStatus').textContent = 'Index cleared.';
+  $('answer').textContent = 'Answer will appear here.';
+  $('citations').innerHTML = '';
+  $('metrics').innerHTML = '';
+};
+
+$('askBtn').onclick = async () => {
+  const question = $('question').value.trim();
+  if (!question) return;
+  $('answer').textContent = 'Thinking…';
+  $('citations').innerHTML = '';
+  try {
+    const r = await api('/query', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, mode: $('mode').value, k: 5 })
+    });
+    $('answer').textContent = r.answer;
+    $('citations').innerHTML = r.citations.map(c =>
+      `<span class="citation">[${c.n}] ${c.doc_id} · score ${Number(c.score).toFixed(3)}</span>`).join('');
+  } catch (e) {
+    $('answer').textContent = 'Error: ' + e.message;
+  }
+};
+
+$('question').addEventListener('keydown', e => { if (e.key === 'Enter') $('askBtn').click(); });
+
+$('evalBtn').onclick = async () => {
+  $('evalStatus').textContent = 'Running eval harness…';
+  $('evalStatus').className = 'status';
+  $('metrics').innerHTML = '';
+  try {
+    const r = await api('/eval');
+    const order = ['recall@k', 'precision@k', 'mrr', 'ndcg@k', 'hit_rate'];
+    $('metrics').innerHTML = order.map(k =>
+      `<div class="metric"><div class="val">${r[k]}</div><div class="lbl">${k}</div></div>`).join('');
+    $('evalStatus').textContent = `${r.n_cases} labelled questions, k=${r.k}.`;
+  } catch (e) {
+    $('evalStatus').textContent = 'Error: ' + e.message;
+    $('evalStatus').className = 'status err';
+  }
+};
+</script>
+</body>
+</html>
