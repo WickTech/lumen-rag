@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import spaces
 import gradio as gr
 
 from lumen_rag.engine import RagEngine
@@ -14,8 +15,19 @@ from lumen_rag.eval.harness import load_cases
 from lumen_rag.ingestion.loaders import _LOADERS, load_file
 from lumen_rag.retrieval import Retriever
 
-_SAMPLE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "docs"
-_EVAL_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "eval.jsonl"
+def _find_repo_root() -> Path:
+    # Locally this file lives at deploy/hf-space/gradio_app.py (repo root 3 up);
+    # on the deployed Space it's copied to app.py at the repo root (0 up).
+    here = Path(__file__).resolve().parent
+    for candidate in (here, here.parent.parent.parent):
+        if (candidate / "data" / "docs").is_dir():
+            return candidate
+    return here
+
+
+_REPO_ROOT = _find_repo_root()
+_SAMPLE_DIR = _REPO_ROOT / "data" / "docs"
+_EVAL_PATH = _REPO_ROOT / "data" / "eval.jsonl"
 
 engine = RagEngine()
 
@@ -48,6 +60,7 @@ def reset_index() -> str:
     return "Index reset."
 
 
+@spaces.GPU(duration=30)
 def ask(question: str, k: int, mode: str):
     if len(engine.store) == 0:
         return "Index is empty — load the sample corpus or upload files first.", ""

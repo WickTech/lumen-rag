@@ -3,26 +3,40 @@
 # Space-specific README (deploy/hf-space/README.md) without touching the
 # real top-level README on this branch.
 #
-# Usage: ./deploy/hf-space/push.sh [space-remote-url]
-# Requires: `huggingface-cli login` already run.
+# Usage: ./deploy/hf-space/push.sh [space-id]
+# Requires: `hf auth login` already run.
+#
+# Uses HfApi().upload_folder() (the HTTP commit API), not `git push` or the
+# `hf upload` CLI: git push needs a git-credential-compatible token (the
+# `hf auth login` OAuth session token isn't one -> "Invalid username or
+# password"), and `hf upload` unconditionally calls repos/create first, which
+# 402s on a free-tier account even when the Space already exists.
 set -euo pipefail
 
-SPACE_URL="${1:-https://huggingface.co/spaces/WickTech/lumen-rag}"
-BRANCH="hf-space-deploy"
+SPACE_ID="${1:-WickTech/lumen-rag}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-git remote add hf-space "$SPACE_URL" 2>/dev/null || git remote set-url hf-space "$SPACE_URL"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
 
-git worktree add -f "/tmp/lumen-hf-space-deploy" HEAD
-trap 'git worktree remove --force /tmp/lumen-hf-space-deploy' EXIT
+git archive HEAD | tar -x -C "$STAGE"
+rm -rf "$STAGE/deploy" "$STAGE/tests"
+cp deploy/hf-space/README.md "$STAGE/README.md"
+cp deploy/hf-space/gradio_app.py "$STAGE/app.py"
+cp deploy/hf-space/requirements.txt "$STAGE/requirements.txt"
 
-cp deploy/hf-space/README.md /tmp/lumen-hf-space-deploy/README.md
-cp deploy/hf-space/gradio_app.py /tmp/lumen-hf-space-deploy/app.py
-cp deploy/hf-space/requirements.txt /tmp/lumen-hf-space-deploy/requirements.txt
-cd /tmp/lumen-hf-space-deploy
-git add README.md app.py requirements.txt
-git -c user.name=deploy -c user.email=deploy@local commit -q -m "Space README + Gradio entrypoint" --allow-empty
-git push -f hf-space "HEAD:refs/heads/main"
+python3 - "$SPACE_ID" "$STAGE" <<'PY'
+import sys
+from huggingface_hub import HfApi
 
-echo "Pushed to $SPACE_URL"
+space_id, stage = sys.argv[1], sys.argv[2]
+url = HfApi().upload_folder(
+    repo_id=space_id,
+    repo_type="space",
+    folder_path=stage,
+    commit_message="Deploy from push.sh",
+    ignore_patterns=["**/__pycache__/**", ".git/**"],
+)
+print(f"Pushed to https://huggingface.co/spaces/{space_id} -> {url}")
+PY
