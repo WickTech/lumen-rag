@@ -65,7 +65,7 @@ class VectorStore:
         )
 
     @classmethod
-    def load(cls, directory: str | Path) -> "VectorStore":
+    def load(cls, directory: str | Path) -> VectorStore:
         d = Path(directory)
         vectors = np.load(d / "vectors.npy")
         store = cls(dim=int(vectors.shape[1]) if vectors.size else 0)

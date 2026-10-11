@@ -35,7 +35,7 @@ def check(bucket_key: str, limit: int, window_s: float) -> bool:
     return False
 
 
-def enforce(request: "Request", key: str, limit: int, window_s: float) -> None:
+def enforce(request: Request, key: str, limit: int, window_s: float) -> None:
     from fastapi import HTTPException
 
     ip = request.client.host if request.client else "unknown"

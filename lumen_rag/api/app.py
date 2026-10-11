@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import json
 import tempfile
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from secrets import compare_digest
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
@@ -19,7 +19,7 @@ from ..eval import evaluate
 from ..eval.harness import load_cases
 from ..ingestion.loaders import _LOADERS, load_file
 from ..llm import answer_stream
-from ..retrieval import Retriever, RetrievalMode
+from ..retrieval import RetrievalMode, Retriever
 from .ratelimit import enforce
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"

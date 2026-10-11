@@ -1,6 +1,6 @@
 from .bm25 import BM25Index, reciprocal_rank_fusion
 from .rerank import CrossEncoderReranker, Reranker, get_reranker
-from .retriever import Retriever, RetrievalMode
+from .retriever import RetrievalMode, Retriever
 
 __all__ = [
     "BM25Index",

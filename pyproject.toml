@@ -26,7 +26,8 @@ loaders = ["pypdf>=4.0", "python-docx>=1.1"]
 docling = ["docling>=2.0"]
 rerank = ["fastembed>=0.5"]
 answer-eval = ["deepeval>=3.0", "openai>=1.55"]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8"]
+# ruff pinned exactly: new releases widen the default rule set and break CI.
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff==0.17.0"]
 
 [project.scripts]
 lumen = "lumen_rag.cli:app"
@@ -45,3 +46,7 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint.flake8-bugbear]
+# Typer's documented idiom declares CLI params via defaults.
+extend-immutable-calls = ["typer.Argument", "typer.Option"]

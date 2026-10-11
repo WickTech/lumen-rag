@@ -128,7 +128,9 @@ class DeepEvalScorer:
             try:
                 metric.measure(test_case)
                 results[name] = MetricResult(score=float(metric.score), reason=metric.reason)
-            except Exception as e:  # one bad judge call shouldn't sink the whole run
+            # Deliberately broad: judge calls fail in provider-specific ways (rate
+            # limits, timeouts, malformed JSON) and one bad call shouldn't sink the run.
+            except Exception as e:  # noqa: BLE001
                 results[name] = MetricResult(score=0.0, error=f"{type(e).__name__}: {e}")
         return results
 

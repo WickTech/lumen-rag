@@ -70,7 +70,7 @@ def load_html(path: Path) -> dict:
     from html.parser import HTMLParser
 
     class _TextExtractor(HTMLParser):
-        SKIP_TAGS = {"script", "style", "head", "meta", "link"}
+        SKIP_TAGS = frozenset({"script", "style", "head", "meta", "link"})
 
         def __init__(self):
             super().__init__()

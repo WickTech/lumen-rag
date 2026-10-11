@@ -33,7 +33,7 @@ class BM25Index:
     Build once at ingest/load time; query many times with ``score``.
     """
 
-    chunks: list["Chunk"]
+    chunks: list[Chunk]
     avgdl: float
     doc_freqs: dict[str, int]   # term → number of docs containing it
     term_freqs: list[dict[str, int]]  # per-chunk term frequencies
@@ -43,7 +43,7 @@ class BM25Index:
     b: float = 0.75
 
     @classmethod
-    def build(cls, chunks: list["Chunk"], k1: float = 1.5, b: float = 0.75) -> "BM25Index":
+    def build(cls, chunks: list[Chunk], k1: float = 1.5, b: float = 0.75) -> BM25Index:
         term_freqs: list[dict[str, int]] = []
         doc_freqs: dict[str, int] = Counter()
         total_len = 0
@@ -87,7 +87,7 @@ class BM25Index:
                 scores[i] += idf * numer / denom
         return scores
 
-    def search(self, query: str, k: int) -> "list[ScoredChunk]":
+    def search(self, query: str, k: int) -> list[ScoredChunk]:
         from ..store import ScoredChunk
 
         scores = self.score(query)
@@ -106,10 +106,10 @@ RRF_K = 60  # standard constant from the original paper
 
 
 def reciprocal_rank_fusion(
-    ranked_lists: list[list["ScoredChunk"]],
+    ranked_lists: list[list[ScoredChunk]],
     k: int,
     rrf_k: int = RRF_K,
-) -> "list[ScoredChunk]":
+) -> list[ScoredChunk]:
     """Fuse multiple ranked lists of ScoredChunk via RRF.
 
     Each chunk_id accumulates 1/(rrf_k + rank) from every list it appears in.
@@ -118,7 +118,7 @@ def reciprocal_rank_fusion(
     from ..store import ScoredChunk
 
     fused: dict[str, float] = {}
-    chunk_map: dict[str, "Chunk"] = {}
+    chunk_map: dict[str, Chunk] = {}
 
     for ranked in ranked_lists:
         for rank, sc in enumerate(ranked, start=1):
