@@ -70,7 +70,10 @@ def upload_files(files: list[str], request: gr.Request) -> str:
             continue
         if Path(f).stat().st_size > _MAX_UPLOAD_BYTES:
             return f"{Path(f).name} exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB upload limit."
-        doc = load_file(f)
+        try:
+            doc = load_file(f)
+        except ImportError as e:  # optional loader extra not installed
+            raise gr.Error(str(e)) from e
         doc["id"] = Path(f).stem
         docs.append(doc)
     if not docs:

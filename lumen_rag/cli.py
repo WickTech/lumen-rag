@@ -18,7 +18,7 @@ from .config import settings
 from .engine import RagEngine
 from .eval import evaluate
 from .eval.harness import load_cases
-from .ingestion.loaders import _LOADERS
+from .ingestion.loaders import _LOADERS, load_file
 from .retrieval import Retriever, RetrievalMode
 
 app = typer.Typer(help="Lumen RAG — ingest, ask, and evaluate a RAG pipeline.")
@@ -26,7 +26,7 @@ app = typer.Typer(help="Lumen RAG — ingest, ask, and evaluate a RAG pipeline."
 
 @app.command()
 def ingest(
-    paths: list[str] = typer.Argument(..., help="Files or directories (.txt/.md)."),
+    paths: list[str] = typer.Argument(..., help="Files or directories (.txt/.md/.html/.pdf/.docx/.pptx)."),
     chunk_size: int = 120,
     overlap: int = 20,
 ) -> None:
@@ -43,10 +43,9 @@ def ingest(
     engine = (
         RagEngine.load() if Path(settings.index_dir, "chunks.json").exists() else RagEngine()
     )
-    docs = [
-        {"id": f.stem, "text": f.read_text(encoding="utf-8"), "metadata": {"source": str(f)}}
-        for f in files
-    ]
+    # Go through the loaders so PDF/DOCX/HTML (and Docling, when enabled) are
+    # parsed rather than read as raw bytes.
+    docs = [load_file(f) for f in files]
     total = engine.add_documents(docs, chunk_size=chunk_size, overlap=overlap)
     engine.save()
     typer.echo(f"Indexed {len(files)} file(s) → {total} chunks in {settings.index_dir}/")
@@ -75,6 +74,34 @@ def run_eval(dataset: str, k: int = 5) -> None:
     report = evaluate(Retriever(engine.store, engine.embedder), cases, k=k)
     typer.echo("\n" + report.pretty() + "\n")
     typer.echo(json.dumps(report.as_dict()))
+
+
+@app.command(name="eval-answers")
+def run_answer_eval(
+    dataset: str,
+    k: int = 5,
+    mode: str = typer.Option("hybrid", help="Retrieval mode: vector | bm25 | hybrid"),
+    judge: str = typer.Option("gpt-4o-mini", help="Judge model for DeepEval metrics."),
+    threshold: float = typer.Option(0.5, help="Per-metric pass threshold (0-1)."),
+    out: str = typer.Option("", help="Optional path to write per-case JSON results."),
+) -> None:
+    """Judge generated answers (faithfulness, relevancy, ...) with DeepEval."""
+    from .eval.answer_quality import evaluate_answers
+
+    engine = RagEngine.load()
+    cases = load_cases(dataset)
+    try:
+        report = evaluate_answers(
+            engine, cases, k=k, mode=mode, threshold=threshold, judge_model=judge  # type: ignore[arg-type]
+        )
+    except (ImportError, RuntimeError) as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo("\n" + report.pretty() + "\n")
+    typer.echo(json.dumps(report.as_dict()))
+    if out:
+        Path(out).write_text(json.dumps(report.per_case, indent=2), encoding="utf-8")
+        typer.echo(f"Per-case results → {out}")
 
 
 @app.command()

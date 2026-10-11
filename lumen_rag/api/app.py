@@ -130,7 +130,10 @@ async def ingest_upload(
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
             tmp.write(data)
             tmp.flush()
-            doc = load_file(tmp.name)
+            try:
+                doc = load_file(tmp.name)
+            except ImportError as e:  # optional loader extra not installed
+                raise HTTPException(status_code=400, detail=str(e)) from e
             doc["id"] = Path(f.filename).stem
             doc["metadata"]["source"] = f.filename
             docs.append(doc)

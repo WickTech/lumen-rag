@@ -18,6 +18,8 @@ from . import metrics
 class EvalCase:
     question: str
     relevant_doc_ids: list[str]
+    # Optional reference answer; enables contextual precision/recall in answer eval.
+    expected_answer: str | None = None
 
 
 @dataclass
@@ -67,7 +69,13 @@ def load_cases(path: str | Path) -> list[EvalCase]:
         if not line:
             continue
         obj = json.loads(line)
-        cases.append(EvalCase(obj["question"], list(obj["relevant_doc_ids"])))
+        cases.append(
+            EvalCase(
+                obj["question"],
+                list(obj.get("relevant_doc_ids", [])),
+                obj.get("expected_answer"),
+            )
+        )
     return cases
 
 

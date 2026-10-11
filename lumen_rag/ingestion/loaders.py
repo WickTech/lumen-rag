@@ -9,10 +9,18 @@ Supported:
   - ``.docx``  → requires ``python-docx`` (``pip install lumen-rag[docx]``)
   - ``.html`` / ``.htm`` → stdlib ``html.parser``, no extra deps
   - ``.txt`` / ``.md``  → plain read, no extra deps
+  - ``.pptx`` → requires ``docling`` (``pip install lumen-rag[docling]``)
+
+With ``LUMEN_DOCLING=1``, PDF/DOCX/PPTX/HTML go through Docling instead, which
+understands layout, reading order, and tables and exports them as Markdown —
+much better chunks for multi-column PDFs and anything tabular.
 """
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
+
+from ..config import settings
 
 # Bounds what reaches chunking/embedding after extraction. Doesn't prevent a
 # memory spike *during* pypdf/python-docx's own internal decompression of a
@@ -91,6 +99,27 @@ def load_html(path: Path) -> dict:
     return _doc(path, extractor.text())
 
 
+_DOCLING_EXTS = {".pdf", ".docx", ".pptx", ".html", ".htm"}
+
+
+@lru_cache(maxsize=1)
+def _docling_converter():
+    try:
+        from docling.document_converter import DocumentConverter
+    except ImportError as e:
+        raise ImportError(
+            "docling is required for layout-aware parsing (and for .pptx). "
+            "Install it with: pip install 'lumen-rag[docling]'"
+        ) from e
+    # Converter construction loads layout/table models; build it once per process.
+    return DocumentConverter()
+
+
+def load_with_docling(path: Path) -> dict:
+    result = _docling_converter().convert(str(path))
+    return _doc(path, result.document.export_to_markdown())
+
+
 _LOADERS = {
     ".txt": load_txt,
     ".md": load_txt,
@@ -98,6 +127,7 @@ _LOADERS = {
     ".docx": load_docx,
     ".html": load_html,
     ".htm": load_html,
+    ".pptx": load_with_docling,
 }
 
 
@@ -110,6 +140,8 @@ def load_file(path: str | Path) -> dict:
         raise ValueError(
             f"Unsupported file type '{ext}'. Supported: {sorted(_LOADERS)}"
         )
+    if settings.use_docling and ext in _DOCLING_EXTS:
+        loader = load_with_docling
     return loader(p)
 
 
