@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..store import Chunk, ScoredChunk, VectorStore
+    from ..store import Chunk, ScoredChunk
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 

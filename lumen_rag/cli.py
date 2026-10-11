@@ -7,19 +7,19 @@ from pathlib import Path
 
 import typer
 
+from .config import settings
+from .engine import RagEngine
+from .eval import evaluate
+from .eval.harness import load_cases
+from .ingestion.loaders import _LOADERS, load_file
+from .retrieval import Retriever
+
 # Ensure Unicode output (arrows, box-drawing) doesn't crash on Windows' cp1252 console.
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     except (AttributeError, ValueError):
         pass
-
-from .config import settings
-from .engine import RagEngine
-from .eval import evaluate
-from .eval.harness import load_cases
-from .ingestion.loaders import _LOADERS, load_file
-from .retrieval import Retriever, RetrievalMode
 
 app = typer.Typer(help="Lumen RAG — ingest, ask, and evaluate a RAG pipeline.")
 

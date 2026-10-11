@@ -1,7 +1,6 @@
 """Tests for BM25 retrieval and RRF hybrid fusion."""
 from __future__ import annotations
 
-import pytest
 
 from lumen_rag.retrieval.bm25 import BM25Index, reciprocal_rank_fusion
 from lumen_rag.store import Chunk, ScoredChunk, VectorStore

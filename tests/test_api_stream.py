@@ -1,13 +1,18 @@
 """Tests for the streaming /query/stream endpoint."""
+import importlib
 import json
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-import lumen_rag.api.app as api_module
 from lumen_rag.api.app import app
 from lumen_rag.engine import RagEngine
+
+# Not `import lumen_rag.api.app as api_module`: lumen_rag.api re-exports `app`,
+# so that attribute path resolves to the FastAPI object, not the module, and
+# seeding `api_module.engine` would silently do nothing.
+api_module = importlib.import_module("lumen_rag.api.app")
 
 _DOC = {"id": "d1", "text": "Engineers get 25 vacation days per year."}
 
