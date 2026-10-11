@@ -49,6 +49,7 @@
       <input type="file" id="fileInput" multiple accept=".txt,.md,.html,.htm,.pdf,.docx">
       <button id="uploadBtn" class="ghost">Upload</button>
       <button id="resetBtn" class="ghost">Reset index</button>
+      <input type="text" id="adminKey" placeholder="Admin key (only needed if ADMIN_KEY is set)" style="max-width:280px">
     </div>
     <div class="status" id="ingestStatus"></div>
   </div>
@@ -121,7 +122,7 @@ $('uploadBtn').onclick = async () => {
 };
 
 $('resetBtn').onclick = async () => {
-  await api('/reset', { method: 'POST' });
+  await api('/reset', { method: 'POST', headers: { 'X-Admin-Key': $('adminKey').value } });
   $('ingestStatus').textContent = 'Index cleared.';
   $('answer').textContent = 'Answer will appear here.';
   $('citations').innerHTML = '';
@@ -139,8 +140,17 @@ $('askBtn').onclick = async () => {
       body: JSON.stringify({ question, mode: $('mode').value, k: 5 })
     });
     $('answer').textContent = r.answer;
-    $('citations').innerHTML = r.citations.map(c =>
-      `<span class="citation">[${c.n}] ${c.doc_id} · score ${Number(c.score).toFixed(3)}</span>`).join('');
+    const citationsEl = $('citations');
+    citationsEl.innerHTML = '';
+    // doc_id is attacker-controlled (set at /ingest time via IngestRequest.documents[].id,
+    // or the uploaded filename), so build these with textContent, not innerHTML —
+    // a malicious doc_id must never be parsed as HTML here.
+    for (const c of r.citations) {
+      const span = document.createElement('span');
+      span.className = 'citation';
+      span.textContent = `[${c.n}] ${c.doc_id} · score ${Number(c.score).toFixed(3)}`;
+      citationsEl.appendChild(span);
+    }
   } catch (e) {
     $('answer').textContent = 'Error: ' + e.message;
   }

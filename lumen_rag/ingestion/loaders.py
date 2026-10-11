@@ -14,9 +14,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# Bounds what reaches chunking/embedding after extraction. Doesn't prevent a
+# memory spike *during* pypdf/python-docx's own internal decompression of a
+# crafted small file (a deeper fix needs guards inside those libraries'
+# parsing, not here) — this only caps the downstream cost once parsing
+# finishes, matching the same cap applied to the raw-JSON /ingest path.
+_MAX_EXTRACTED_CHARS = 2_000_000
+
 
 def _doc(path: Path, text: str) -> dict:
-    return {"id": path.stem, "text": text, "metadata": {"source": str(path)}}
+    return {"id": path.stem, "text": text[:_MAX_EXTRACTED_CHARS], "metadata": {"source": str(path)}}
 
 
 def load_txt(path: Path) -> dict:

@@ -16,6 +16,7 @@ class Settings:
     embed_model: str = os.getenv("EMBED_MODEL", "text-embedding-3-small")
     chat_model: str = os.getenv("CHAT_MODEL", "gpt-4o-mini")
     index_dir: str = os.getenv("LUMEN_INDEX_DIR", ".lumen_index")
+    admin_key: str = os.getenv("ADMIN_KEY", "")
 
     @property
     def offline(self) -> bool:
