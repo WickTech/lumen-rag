@@ -4,7 +4,6 @@ from lumen_rag.eval import evaluate
 from lumen_rag.eval.harness import EvalCase
 from lumen_rag.retrieval import Retriever
 
-
 DOCS = [
     {"id": "deploys", "text": "We deploy to production every weekday at 4pm using blue-green."},
     {"id": "oncall", "text": "On-call rotations last one week and run Monday to Monday."},

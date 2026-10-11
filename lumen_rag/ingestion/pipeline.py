@@ -7,7 +7,7 @@ from pathlib import Path
 from ..embeddings import Embedder, get_embedder
 from ..store import Chunk, VectorStore
 from .chunker import chunk_text
-from .loaders import _LOADERS, load_file
+from .loaders import load_file
 
 
 def ingest_documents(

@@ -7,7 +7,7 @@ from .config import settings
 from .embeddings import get_embedder
 from .ingestion import ingest_documents
 from .llm import Answer, answer
-from .retrieval import Retriever, RetrievalMode
+from .retrieval import RetrievalMode, Retriever
 from .store import VectorStore
 
 
@@ -31,6 +31,6 @@ class RagEngine:
         self.store.save(directory or settings.index_dir)
 
     @classmethod
-    def load(cls, directory: str | Path | None = None) -> "RagEngine":
+    def load(cls, directory: str | Path | None = None) -> RagEngine:
         store = VectorStore.load(directory or settings.index_dir)
         return cls(store=store)

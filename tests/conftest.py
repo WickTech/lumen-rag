@@ -12,3 +12,6 @@ from lumen_rag import config
 def _force_offline(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(config.settings, "openai_api_key", "", raising=False)
+    # Optional heavy backends stay off unless a test opts in explicitly.
+    monkeypatch.setattr(config.settings, "reranker_model", "", raising=False)
+    monkeypatch.setattr(config.settings, "use_docling", False, raising=False)
