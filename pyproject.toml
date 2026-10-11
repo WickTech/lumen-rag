@@ -8,6 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Rishabh Verma" }]
 dependencies = [
     "fastapi>=0.115",
+    "starlette>=1.3.1",  # fastapi's own pin allowed a starlette with 2 known CVEs
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
     "numpy>=1.26",
@@ -22,7 +23,11 @@ openai = ["openai>=1.55"]
 pdf = ["pypdf>=4.0"]
 docx = ["python-docx>=1.1"]
 loaders = ["pypdf>=4.0", "python-docx>=1.1"]
-dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff>=0.8"]
+docling = ["docling>=2.0"]
+rerank = ["fastembed>=0.5"]
+answer-eval = ["deepeval>=3.0", "openai>=1.55"]
+# ruff pinned exactly: new releases widen the default rule set and break CI.
+dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff==0.17.0"]
 
 [project.scripts]
 lumen = "lumen_rag.cli:app"
@@ -41,3 +46,7 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint.flake8-bugbear]
+# Typer's documented idiom declares CLI params via defaults.
+extend-immutable-calls = ["typer.Argument", "typer.Option"]

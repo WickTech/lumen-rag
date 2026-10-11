@@ -9,7 +9,6 @@ import pytest
 
 from lumen_rag.ingestion.loaders import load_file, load_files, load_html, load_txt
 
-
 # ---------------------------------------------------------------------------
 # Helper: write a temp file
 # ---------------------------------------------------------------------------
