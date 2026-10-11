@@ -1,0 +1,72 @@
+name: Security
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1" # weekly full scan picks up newly published Semgrep rules
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks (pinned, checksum-verified)
+        env:
+          VERSION: 8.30.1
+          SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          echo "${SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar xzf gitleaks.tgz gitleaks
+      - name: Scan (PR commits, or full history)
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            "$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts="$BASE..$HEAD" .
+          else
+            "$RUNNER_TEMP/gitleaks" git --redact --no-banner .
+          fi
+
+  semgrep:
+    name: Static analysis (Semgrep)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:1.180.0@sha256:529ee8a277ec8adc5b534d7c74eea0a47e9de21d62852b6ba7ac6ba9566845c3
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to the Security tab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # PRs fail only on findings the PR introduces, so pre-existing issues
+      # don't block unrelated work; they're tracked in code scanning instead.
+      - name: Scan PR (new findings only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: semgrep scan --config p/default --metrics off --error --baseline-commit "$BASE"
+      - name: Full scan
+        if: github.event_name != 'pull_request'
+        run: semgrep scan --config p/default --metrics off --sarif --output semgrep.sarif
+      - name: Upload to code scanning
+        # Code scanning on private repos needs GitHub Advanced Security.
+        if: github.event_name != 'pull_request' && !github.event.repository.private
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
