@@ -1,0 +1,87 @@
+name: Eval report
+
+# Measures the retrieval eval set (data/eval_v2) on the pull-request head and on
+# its base commit, posts the metric diff as a sticky PR comment, and fails if a
+# tracked metric drops by more than 0.01. Retrieval is deterministic offline
+# (hashing embedder, no reranker), so a drop is a real change, not noise.
+#
+# Uses the plain `pull_request` trigger on purpose: code from the PR runs here,
+# so it must never get secrets or a write token to the repository contents.
+
+on:
+  pull_request:
+    paths:
+      - "lumen_rag/**"
+      - "scripts/eval_report.py"
+      - "data/eval_v2/**"
+      - "pyproject.toml"
+      - ".github/workflows/eval-report.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  eval-report:
+    name: Retrieval eval report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+
+      - name: Measure head
+        run: python scripts/eval_report.py run --root . --out "$RUNNER_TEMP/head.json"
+
+      - name: Measure base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # A base that cannot be measured (older than the v2 set) is not an error:
+          # the report then shows head numbers only and nothing blocks the merge.
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE_SHA"
+          python scripts/eval_report.py run --root "$RUNNER_TEMP/base" --out "$RUNNER_TEMP/base.json" \
+            || echo "::warning::could not measure the base commit; reporting head only"
+
+      - name: Compare
+        id: compare
+        continue-on-error: true
+        run: |
+          python scripts/eval_report.py compare \
+            --base "$RUNNER_TEMP/base.json" --head "$RUNNER_TEMP/head.json" \
+            --max-drop 0.01 --out "$RUNNER_TEMP/report.md"
+
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/report.md" ]; then cat "$RUNNER_TEMP/report.md" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Post or update PR comment
+        if: always()
+        # Fork PRs get a read-only token, so commenting can fail; the job summary above still has the report.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          test -f "$RUNNER_TEMP/report.md"
+          existing=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '[.[] | select(.body | contains("<!-- lumen-eval-report -->")) | .id] | first // empty')
+          if [ -n "$existing" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$existing" -F body=@"$RUNNER_TEMP/report.md" > /dev/null
+          else
+            gh api --method POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@"$RUNNER_TEMP/report.md" > /dev/null
+          fi
+
+      - name: Fail on regression
+        if: steps.compare.outcome == 'failure'
+        run: |
+          echo "A tracked retrieval metric dropped by more than 0.01; see the report above."
+          exit 1

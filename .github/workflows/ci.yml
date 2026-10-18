@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
 
 jobs:
@@ -26,3 +26,5 @@ jobs:
         run: |
           lumen ingest data/docs
           python scripts/check_eval.py data/eval.jsonl --k 3 --mode hybrid
+      - name: Validate eval set v2
+        run: python scripts/validate_eval_set.py
