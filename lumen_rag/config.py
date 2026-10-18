@@ -24,6 +24,10 @@ class Settings:
     rerank_pool_factor: int = int(os.getenv("LUMEN_RERANK_POOL", "4"))
     # "1" routes PDF/DOCX/PPTX/HTML through Docling (requires the [docling] extra).
     use_docling: bool = os.getenv("LUMEN_DOCLING", "") == "1"
+    # OpenTelemetry tracing: "" (off), "console" or "otlp" (needs the [tracing] extra).
+    tracing: str = os.getenv("LUMEN_TRACING", "")
+    # "1" also records question and answer text on spans; off by default (lengths only).
+    trace_content: bool = os.getenv("LUMEN_TRACE_CONTENT", "") == "1"
 
     @property
     def offline(self) -> bool:
