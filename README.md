@@ -17,6 +17,10 @@ reranking — instead of vibes.
 > suite — runs in CI with zero secrets. Add `OPENAI_API_KEY` for real embeddings
 > and generated answers.
 
+![Lumen RAG demo: load the sample corpus, ask a question, get a cited answer, run the built-in retrieval eval](https://raw.githubusercontent.com/WickTech/lumen-rag/master/docs/demo.gif)
+
+*The bundled demo UI (`lumen serve`, then open `/demo/`), recorded offline: no API key, no network.*
+
 ---
 
 ## ✅ Current Status
@@ -123,6 +127,17 @@ lumen_rag/
 
 ## 🚀 Quick start
 
+**Install.** Not on PyPI yet: the first release is prepared (see [`docs/RELEASING.md`](https://github.com/WickTech/lumen-rag/blob/master/docs/RELEASING.md))
+but unpublished, so until then install from GitHub. The `pip install lumen-rag[extra]` commands elsewhere in
+this README start working once it is on PyPI; before that, add the extra to the git URL.
+
+```bash
+pip install "lumen-rag @ git+https://github.com/WickTech/lumen-rag"                    # core, runs fully offline
+pip install "lumen-rag[pgvector,tracing] @ git+https://github.com/WickTech/lumen-rag"  # with extras
+```
+
+**Or work from a checkout** (needed for the bundled sample data and eval sets):
+
 ```bash
 git clone https://github.com/WickTech/lumen-rag && cd lumen-rag
 pip install -e ".[dev]"            # add ,openai for real embeddings
@@ -224,13 +239,36 @@ CI runs on Python 3.10 & 3.12: lint → pytest → `check_eval.py` (enforces rec
 
 Every pull request that touches `lumen_rag/`, `data/eval_v2/` or the report script gets a
 sticky comment with the retrieval metrics (recall@5, MRR, nDCG@5, plus MRR per question
-category) for vector, BM25 and hybrid search on the [v2 eval set](data/eval_v2/README.md),
+category) for vector, BM25 and hybrid search on the [v2 eval set](https://github.com/WickTech/lumen-rag/blob/master/data/eval_v2/README.md),
 measured on the PR head **and** on its base commit, with the deltas. The
-[`Eval report`](.github/workflows/eval-report.yml) job fails if any tracked metric drops
+[`Eval report`](https://github.com/WickTech/lumen-rag/blob/master/github/workflows/eval-report.yml) job fails if any tracked metric drops
 by more than 0.01. Retrieval is deterministic offline (hashing embedder, no reranker), so a
 drop is a real change, not noise. If a PR changes the eval set itself the numbers are shown
 but marked not comparable and never block the merge. Fork PRs cannot receive the comment
 (read-only token); the report is in the job summary instead.
+
+---
+
+## 🧭 Where Lumen fits
+
+Lumen is a small RAG *engine* that ships with its own evaluation. It is not a replacement for the large
+evaluation libraries, and `lumen eval-answers` actually uses one of them (DeepEval) as its LLM judge.
+
+| | Lumen RAG | [Ragas](https://github.com/explodinggradients/ragas) | [DeepEval](https://github.com/confident-ai/deepeval) |
+|---|---|---|---|
+| What it is | RAG engine + built-in evaluation | RAG evaluation metrics library | LLM / RAG evaluation framework, pytest-style |
+| Brings its own retrieval pipeline | Yes (swappable store, retriever, answerer) | No, you supply the pipeline | No, you supply the pipeline |
+| Metric breadth | Small: recall / MRR / nDCG, claim-level attribution, optional DeepEval judging | RAG metrics (faithfulness, answer relevance, context precision / recall), synthetic test data | 50+ metrics across RAG, agents, multi-turn, safety |
+| Needs an LLM judge | Not for retrieval metrics or `--claims`; yes for `eval-answers` | LLM-based metrics need a judge model | Most metrics are LLM-judged |
+| Works with no API key at all | Yes, by default (hashing embedder, extractive answerer) | Depends on the metric and the judge model | Depends on the metric and the judge model |
+| Regression gate in CI | Threshold script + a PR comment with metric deltas, in this repo | Not a built-in feature I found | pytest integration |
+| Hosted dashboard | No; exports OpenTelemetry traces instead | No | Optional (Confident AI) |
+
+How to read it: pick Ragas or DeepEval when you already have a pipeline and want many LLM-judged metrics.
+Pick Lumen when you want a pipeline you can read end to end, deterministic offline evaluation that gates a
+pull request, and a way to tell *retrieval* failures from *generation* failures (see claim-level diagnostics
+below). The other two columns summarise their public documentation as reported by secondary sources in
+October 2026; check their docs for current details.
 
 ---
 
@@ -244,7 +282,7 @@ Two eval sets ship with the repo:
   for any configuration and tells you nothing.
 - **v2** — `data/eval_v2` (120 short docs, 176 questions in five categories:
   direct, paraphrase, disambiguation, multihop, unanswerable). Built so that
-  configurations can be told apart; see [`data/eval_v2/README.md`](data/eval_v2/README.md).
+  configurations can be told apart; see [`data/eval_v2/README.md`](https://github.com/WickTech/lumen-rag/blob/master/data/eval_v2/README.md).
 
 Reproduce with `python scripts/benchmark.py` (v1) or `python scripts/benchmark.py --set v2`.
 
@@ -280,7 +318,7 @@ in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes 
 | hybrid (BM25 + RRF, sentence chunking) | 0.97 | 0.20 | 0.97 | 0.97 | 1.00 |
 
 > **Correction (2026-10-18):** earlier versions of this table (and
-> [`docs/case-study.md`](docs/case-study.md)) reported naive MRR 0.93 and "+ hybrid"
+> [`docs/case-study.md`](https://github.com/WickTech/lumen-rag/blob/master/docs/case-study.md)) reported naive MRR 0.93 and "+ hybrid"
 > equal to chunked-vector. `evaluate()` did not apply the retrieval mode, so every
 > row had in fact been measured in hybrid mode and the "vector-only" labels were
 > wrong. `evaluate()` now takes `mode=`, and the numbers above are the real ones.
@@ -360,7 +398,7 @@ Per **claim**: `supported` (grounded in a retrieved chunk from a gold document),
 although every gold document was retrieved). Per **unanswerable question**: `abstained` or
 `hallucinated`.
 
-Results on the [v2 set](data/eval_v2/README.md), offline extractive answerer, k=5:
+Results on the [v2 set](https://github.com/WickTech/lumen-rag/blob/master/data/eval_v2/README.md), offline extractive answerer, k=5:
 
 | Retrieval mode | answer ok | retrieval-miss | generation-error | claim precision | faithfulness |
 |---|---|---|---|---|---|
@@ -419,4 +457,4 @@ answerer treat the rates as an approximation. `diagnose_claims(..., aligner=fn)`
 
 ## 📄 License
 
-MIT — see [LICENSE](./LICENSE).
+MIT — see [LICENSE](https://github.com/WickTech/lumen-rag/blob/master/LICENSE).
