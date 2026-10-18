@@ -4,11 +4,20 @@ Offline (no API key), ``answer`` returns an extractive answer: the top chunks
 stitched together with citation markers. This keeps the full RAG loop runnable
 and testable end-to-end without a model. With a key, it calls the chat model
 using a grounded, citation-enforcing prompt.
+
+Every entry point has a blocking and an ``async`` form. The API uses the async
+ones so a slow model call never occupies a worker thread or stalls the event loop;
+both share one cached, connection-pooled client per process instead of building a
+new client (and a new TLS handshake) for every request.
 """
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
+from functools import lru_cache
 
+from . import tracing
 from .config import settings
 from .store import ScoredChunk
 
@@ -17,6 +26,8 @@ SYSTEM_PROMPT = (
     "context passages. Cite sources inline as [1], [2]. If the context does not "
     "contain the answer, say you don't know."
 )
+
+_NO_CONTEXT = "I don't have any indexed context to answer that."
 
 
 @dataclass
@@ -41,71 +52,156 @@ def _citations(chunks: list[ScoredChunk]) -> list[dict]:
     ]
 
 
-def answer(question: str, chunks: list[ScoredChunk]) -> Answer:
-    if not chunks:
-        return Answer("I don't have any indexed context to answer that.", [])
+def _messages(question: str, chunks: list[ScoredChunk]) -> list[dict]:
+    return [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Context:\n{_format_context(chunks)}\n\nQuestion: {question}"},
+    ]
 
-    citations = _citations(chunks)
 
-    if settings.offline:
-        # Extractive fallback: surface the best passages with markers.
-        body = " ".join(f"{c.chunk.text} [{i + 1}]" for i, c in enumerate(chunks[:2]))
-        return Answer(f"(offline extractive answer) {body}", citations)
+def _offline_text(chunks: list[ScoredChunk]) -> str:
+    # Extractive fallback: surface the best passages with markers.
+    body = " ".join(f"{c.chunk.text} [{i + 1}]" for i, c in enumerate(chunks[:2]))
+    return f"(offline extractive answer) {body}"
 
+
+@lru_cache(maxsize=1)
+def _client():
+    """One blocking client per process: it owns an HTTP connection pool."""
     from openai import OpenAI
 
-    client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
-    resp = client.chat.completions.create(
-        model=settings.chat_model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"Context:\n{_format_context(chunks)}\n\nQuestion: {question}",
-            },
-        ],
-        temperature=0.1,
-    )
-    return Answer(resp.choices[0].message.content or "", citations)
+    return OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
 
 
-def answer_stream(question: str, chunks: list[ScoredChunk]):
+@lru_cache(maxsize=1)
+def _async_client():
+    """One async client per process (its pool is bound to the loop that first uses it)."""
+    from openai import AsyncOpenAI
+
+    return AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+
+
+def reset_clients() -> None:
+    """Drop the cached clients, e.g. after changing the API key or base URL at runtime."""
+    _client.cache_clear()
+    _async_client.cache_clear()
+
+
+def _record_usage(span, usage) -> None:
+    """Attach OpenTelemetry GenAI token counts when the provider reported them."""
+    if usage is None:
+        return
+    tracing.set_attr(span, "gen_ai.usage.input_tokens", getattr(usage, "prompt_tokens", None))
+    tracing.set_attr(span, "gen_ai.usage.output_tokens", getattr(usage, "completion_tokens", None))
+
+
+def answer(question: str, chunks: list[ScoredChunk]) -> Answer:
+    if not chunks:
+        return Answer(_NO_CONTEXT, [])
+
+    citations = _citations(chunks)
+    with tracing.span(
+        "lumen.answer", **{"lumen.offline": settings.offline, "lumen.context_chunks": len(chunks)}
+    ) as span:
+        if settings.offline:
+            text = _offline_text(chunks)
+        else:
+            span.set_attribute("gen_ai.request.model", settings.chat_model)
+            resp = _client().chat.completions.create(
+                model=settings.chat_model, messages=_messages(question, chunks), temperature=0.1
+            )
+            _record_usage(span, getattr(resp, "usage", None))
+            text = resp.choices[0].message.content or ""
+        span.set_attribute("lumen.answer.chars", len(text))
+        tracing.set_attr(span, "lumen.answer.text", tracing.content_attr(text))
+    return Answer(text, citations)
+
+
+async def answer_async(question: str, chunks: list[ScoredChunk]) -> Answer:
+    """``answer`` without blocking the event loop."""
+    if not chunks:
+        return Answer(_NO_CONTEXT, [])
+
+    citations = _citations(chunks)
+    with tracing.span(
+        "lumen.answer", **{"lumen.offline": settings.offline, "lumen.context_chunks": len(chunks)}
+    ) as span:
+        if settings.offline:
+            text = _offline_text(chunks)
+        else:
+            span.set_attribute("gen_ai.request.model", settings.chat_model)
+            resp = await _async_client().chat.completions.create(
+                model=settings.chat_model, messages=_messages(question, chunks), temperature=0.1
+            )
+            _record_usage(span, getattr(resp, "usage", None))
+            text = resp.choices[0].message.content or ""
+        span.set_attribute("lumen.answer.chars", len(text))
+        tracing.set_attr(span, "lumen.answer.text", tracing.content_attr(text))
+    return Answer(text, citations)
+
+
+def answer_stream(question: str, chunks: list[ScoredChunk]) -> Iterator[tuple[str, list | None]]:
     """Yield (token: str, citations: list | None) tuples.
 
     The final tuple carries citations; all prior tuples have citations=None.
     Callers can use this to build an SSE stream without buffering the full answer.
+    Blocking: use ``answer_stream_async`` inside an event loop.
     """
     if not chunks:
-        yield ("I don't have any indexed context to answer that.", _citations(chunks))
+        yield (_NO_CONTEXT, _citations(chunks))
         return
 
     citations = _citations(chunks)
 
     if settings.offline:
-        body = " ".join(f"{c.chunk.text} [{i + 1}]" for i, c in enumerate(chunks[:2]))
-        full = f"(offline extractive answer) {body}"
-        for word in full.split(" "):
+        for word in _offline_text(chunks).split(" "):
             yield (word + " ", None)
         yield ("", citations)
         return
 
-    from openai import OpenAI
-
-    client = OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
-    stream = client.chat.completions.create(
-        model=settings.chat_model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"Context:\n{_format_context(chunks)}\n\nQuestion: {question}",
-            },
-        ],
-        temperature=0.1,
-        stream=True,
+    stream = _client().chat.completions.create(
+        model=settings.chat_model, messages=_messages(question, chunks), temperature=0.1, stream=True
     )
     for chunk in stream:
         delta = chunk.choices[0].delta.content or ""
         if delta:
             yield (delta, None)
     yield ("", citations)
+
+
+async def answer_stream_async(
+    question: str, chunks: list[ScoredChunk]
+) -> AsyncIterator[tuple[str, list | None]]:
+    """Async twin of ``answer_stream``: the same (token, citations) tuples, never blocking the loop."""
+    if not chunks:
+        yield (_NO_CONTEXT, _citations(chunks))
+        return
+
+    citations = _citations(chunks)
+    # Not made "current": this generator yields, and a context attached here would be
+    # detached from a different context on cancellation.
+    span = tracing.start_span(
+        "lumen.answer",
+        **{"lumen.offline": settings.offline, "lumen.context_chunks": len(chunks), "lumen.streaming": True},
+    )
+    n_chars = 0
+    try:
+        if settings.offline:
+            for word in _offline_text(chunks).split(" "):
+                n_chars += len(word) + 1
+                yield (word + " ", None)
+                await asyncio.sleep(0)  # let other requests run between tokens
+        else:
+            span.set_attribute("gen_ai.request.model", settings.chat_model)
+            stream = await _async_client().chat.completions.create(
+                model=settings.chat_model, messages=_messages(question, chunks), temperature=0.1, stream=True
+            )
+            async for chunk in stream:
+                delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
+                if delta:
+                    n_chars += len(delta)
+                    yield (delta, None)
+        span.set_attribute("lumen.answer.chars", n_chars)
+        yield ("", citations)
+    finally:
+        span.end()

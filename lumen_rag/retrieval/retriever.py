@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+from .. import tracing
 from ..config import settings
 from ..embeddings import Embedder, get_embedder
 from ..store import ScoredChunk, Store
@@ -78,6 +79,22 @@ class Retriever:
             rerank: When mode is ``"vector"``, blend lexical overlap into scores.
             rerank_weight: Weight of the lexical component in vector+lexical blend.
         """
+        with tracing.span(
+            "lumen.retrieve",
+            **{
+                "lumen.mode": mode,
+                "lumen.k": k,
+                "lumen.reranker": self.reranker is not None,
+                "lumen.store": type(self.store).__name__,
+            },
+        ) as span:
+            results = self._retrieve(query, k, mode, rerank, rerank_weight)
+            tracing.set_attr(span, "lumen.results", len(results))
+            return results
+
+    def _retrieve(
+        self, query: str, k: int, mode: RetrievalMode, rerank: bool, rerank_weight: float
+    ) -> list[ScoredChunk]:
         if len(self.store) == 0:
             return []
 
