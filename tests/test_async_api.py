@@ -1,6 +1,7 @@
 """The API must not block its event loop, and the model client must be pooled."""
 import asyncio
 import importlib
+import sys
 import time
 from types import SimpleNamespace
 
@@ -182,8 +183,8 @@ def online(monkeypatch):
                 return gen()
             return _FakeResponse()
 
-    monkeypatch.setattr("openai.OpenAI", FakeOpenAI)
-    monkeypatch.setattr("openai.AsyncOpenAI", FakeAsyncOpenAI)
+    # A stand-in module: the real SDK is an optional extra and may not be installed (it is not in CI).
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI, AsyncOpenAI=FakeAsyncOpenAI))
     yield built
     llm.reset_clients()
 

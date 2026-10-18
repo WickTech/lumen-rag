@@ -127,7 +127,7 @@ def test_token_usage_is_recorded_for_online_answers(spans, monkeypatch):
                 usage=SimpleNamespace(prompt_tokens=120, completion_tokens=9),
             )
 
-    monkeypatch.setattr("openai.OpenAI", FakeOpenAI)
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI))  # SDK is optional
     from lumen_rag.store import Chunk, ScoredChunk
 
     llm.answer("how many days?", [ScoredChunk(Chunk("c", "Thirty days.", "d", {}), 1.0)])
