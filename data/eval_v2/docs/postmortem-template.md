@@ -1,0 +1,2 @@
+# Postmortem template and timeline
+A written postmortem is required for every Sev1 and Sev2 incident and must be published within 5 business days. It follows a blameless format with sections for impact, timeline, root cause, what went well, and action items. Each action item gets an owner and a due date no later than 30 days out. The incident commander facilitates a review meeting open to all engineering staff.

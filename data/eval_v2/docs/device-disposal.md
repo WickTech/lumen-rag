@@ -1,0 +1,2 @@
+# Device disposal and data wiping
+Retired laptops and phones are collected by IT and wiped with a certified three-pass erasure before reuse or recycling. A disposal certificate is stored for 7 years. Employees must never sell or give away company devices. Devices holding customer data from deployments are physically destroyed rather than recycled, and the destruction is witnessed by a second IT staff member.

@@ -1,0 +1,2 @@
+# Parental leave
+Primary caregivers receive 18 weeks of fully paid parental leave and secondary caregivers receive 6 weeks, in all regions. Leave may be taken in up to two blocks within the first 12 months after birth or adoption. Employees keep their benefits during leave and accrue vacation as normal. A phased return of 4 weeks at 60 percent hours is available on request and is paid at full salary.

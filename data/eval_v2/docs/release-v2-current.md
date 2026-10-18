@@ -1,0 +1,2 @@
+# Release process for the current v2 platform
+The v2 platform ships continuously: any merged change that passes the pipeline is deployed to production behind a feature flag. Deployments are paused on Fridays after 14:00 UTC and during the last week of each quarter, except for hotfixes. Canary deployments serve 5 percent of traffic for 30 minutes before the rollout widens to all customers. Release notes are generated automatically from merged pull request titles.

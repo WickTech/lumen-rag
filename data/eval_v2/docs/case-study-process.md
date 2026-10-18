@@ -1,0 +1,2 @@
+# Customer case study process
+Case studies need written approval from the customer, which is valid for 24 months. The customer success manager proposes candidates and marketing drafts the story within 3 weeks. Numbers quoted must be confirmed by the customer in writing. Case studies about customers in regulated industries are also checked by legal. Customers can withdraw approval at any time, and material is removed within 10 business days.

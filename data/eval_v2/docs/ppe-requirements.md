@@ -1,0 +1,2 @@
+# Protective equipment requirements
+In robot zones everyone must wear safety shoes and a high-visibility vest. Hard hats are required only where goods are stored above 4 metres or in the H400 pallet areas. Hearing protection is required when sustained noise exceeds 85 decibels, which applies to the battery charging bay at some sites. Technicians opening a robot enclosure also wear insulated gloves.

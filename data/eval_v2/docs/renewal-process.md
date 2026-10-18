@@ -1,0 +1,2 @@
+# Renewal process
+The customer success manager starts the renewal conversation 120 days before the contract ends. A renewal quote is sent at 90 days. Price increases at renewal are capped at 7 percent a year unless the customer adds robots. Customers who have not responded 30 days before the end are called by the account executive. Auto-renewal applies to Starter and Pro plans for 12 months at a time.

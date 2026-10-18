@@ -1,0 +1,2 @@
+# Dependency policy
+Dependencies are updated automatically by a bot that opens weekly pull requests. Security patches rated high or critical must be applied within 7 days, medium within 30 days. New dependencies need a short note in the pull request explaining why the library is needed, its licence and its maintenance status. Packages with no release in the last 24 months are not accepted for new work.

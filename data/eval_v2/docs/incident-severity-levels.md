@@ -1,0 +1,2 @@
+# Incident severity levels
+Sev1 means a complete outage of a customer-facing service such as fleet control, checkout, or robot telemetry, or any data loss; response time is 10 minutes. Sev2 means a partial outage or severe degradation affecting more than 20 percent of customers, with a 30-minute response time. Sev3 is a minor degradation with a workaround, answered the next business day. Sev4 is cosmetic and handled through normal tickets.

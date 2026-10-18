@@ -1,0 +1,2 @@
+# Sick leave policy for all regions
+Sick leave is separate from vacation. Employees get 10 paid sick days per year in every region. A medical certificate is required once an absence passes 3 consecutive days. Sick days do not carry over. Employees who are unwell should tell their manager before the start of their working day and do not need to find cover for on-call duties; the on-call coordinator arranges a replacement.

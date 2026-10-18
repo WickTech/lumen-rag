@@ -1,0 +1,2 @@
+# Brand guidelines
+The Halden brand uses a deep blue as its primary colour and orange as the accent. The logo needs a minimum clear space equal to the height of the letter H on all sides, and a minimum width of 24 millimetres in print. The corporate typeface is licensed to employees and agencies through the marketing team. Presentation templates are stored in the shared brand library and must be used for all external decks.

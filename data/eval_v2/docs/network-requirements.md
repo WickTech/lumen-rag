@@ -1,0 +1,2 @@
+# Network requirements for a site
+Sites need a dedicated wireless network with full coverage of robot aisles and a signal strength of at least minus 65 dBm. The network must support 5 GHz with roaming below 50 milliseconds. A wired uplink of at least 100 megabits per second is needed, and outbound HTTPS to Halden cloud addresses must be allowed. Robots keep working with no connection for up to 30 minutes using their cached tasks.

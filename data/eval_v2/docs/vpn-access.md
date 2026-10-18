@@ -1,0 +1,2 @@
+# VPN access
+The VPN is required to reach internal tools and production systems from outside an office network. Access needs a hardware security key and a company-managed laptop. VPN sessions disconnect after 12 hours and users need to sign in again. Access from personal devices is not allowed. Contractors get VPN access only to the systems named in their contract, for a maximum of 90 days at a time.

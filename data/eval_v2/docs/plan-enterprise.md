@@ -1,0 +1,2 @@
+# Enterprise plan
+The Enterprise plan is priced per contract and starts at 24,000 euros per month for unlimited sites and up to 1,000 robots. It includes a dedicated customer success manager, a 99.95 percent uptime commitment, private cloud deployment on request, and the highest API limit of 6,000 requests per minute. Contracts run for a minimum of 24 months and include a quarterly business review.

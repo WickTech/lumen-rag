@@ -1,0 +1,2 @@
+# Promotion criteria for managers
+Promotion to senior manager requires at least 18 months in the current management role and demonstrated results in hiring, retention and delivery. The packet is reviewed by a committee of three directors rather than a single external reviewer, and the committee meets quarterly. Managers must have completed the leadership training programme before they can be put forward.

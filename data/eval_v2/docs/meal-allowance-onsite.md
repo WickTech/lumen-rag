@@ -1,0 +1,2 @@
+# Meals during customer site deployments
+Engineers and technicians working on a customer warehouse deployment receive a meal allowance of 25 euros per day, separate from the standard travel per-diem, as long as the customer does not provide meals. Alcohol is not reimbursable. Receipts are not required for the meal allowance but the deployment lead must confirm the days worked on the weekly timesheet.

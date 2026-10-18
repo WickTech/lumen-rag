@@ -1,0 +1,2 @@
+# Near-miss reporting
+Any event in which a robot and a person or object came dangerously close but no injury or damage occurred must be reported as a near miss within 48 hours. Reports are filed in the safety tool and reviewed by the site safety officer at the weekly safety meeting. A cluster of three near misses at the same location within 30 days triggers a mandatory layout review. Reporters are never penalised.

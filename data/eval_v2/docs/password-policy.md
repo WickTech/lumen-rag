@@ -1,0 +1,2 @@
+# Password policy
+Passwords for company accounts must be at least 14 characters and are checked against a list of known breached passwords. Passwords do not expire on a schedule; they are only changed after a suspected compromise. Employees must use the company password manager, and the same password may never be reused across two services. Shared accounts are prohibited, except for the two break-glass accounts held by the security team.

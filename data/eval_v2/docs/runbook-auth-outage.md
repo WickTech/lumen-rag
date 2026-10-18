@@ -1,0 +1,2 @@
+# Runbook: authentication outage
+If sign-in or token refresh fails for more than 5 percent of requests, the on-call engineer rolls back the most recent auth deployment before investigating. Sessions already issued remain valid for 60 minutes, so customers who are signed in keep working. The identity provider status page should be checked first, because roughly half of auth incidents are caused by the upstream provider. Do not rotate signing keys during an incident without the security lead.

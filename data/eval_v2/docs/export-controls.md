@@ -1,0 +1,2 @@
+# Export controls
+Halden robots contain lidar and navigation software that is subject to export control. Shipments outside the EU, the United States and Switzerland need an export classification by the compliance officer before the order is accepted. Sales staff must not promise delivery dates for such destinations until the licence is granted, which typically takes 4 to 8 weeks. Sanctioned countries are never supplied.

@@ -1,0 +1,2 @@
+# Domestic travel
+Domestic trips within the employee's own country are booked through the travel portal. Economy rail or coach is the default; flights are allowed for journeys over 5 hours. Hotels are capped at 150 euros per night outside major cities and 220 euros in capital cities. Trips longer than 3 nights need line manager approval before booking. Per-diem for meals is 40 euros per travel day.

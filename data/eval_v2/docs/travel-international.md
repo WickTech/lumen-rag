@@ -1,0 +1,2 @@
+# International travel
+International trips need approval from the department head at least 14 days before departure. Flights under 6 hours are economy; flights over 6 hours may be premium economy. Hotels are capped at 250 euros per night. Employees receive a per-diem of 65 euros per travel day, and travel insurance is arranged by the company. A visa that the trip requires is paid for by the company but must be applied for 30 days ahead.

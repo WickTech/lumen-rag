@@ -1,0 +1,2 @@
+# On-call rotation for the data team
+The data team runs a two-week on-call rotation that changes every second Wednesday at 09:00 UTC. Because data incidents are less frequent there is a single on-call engineer and a named backup rather than a primary and secondary. The engineer must acknowledge a page within 20 minutes. Engineers serve at most one rotation in every six. Swaps need the team lead to confirm them.

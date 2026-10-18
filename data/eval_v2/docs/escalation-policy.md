@@ -1,0 +1,2 @@
+# Escalation policy
+If the primary on-call does not acknowledge within the response time, the page automatically escalates to the secondary, then to the engineering manager, and finally to the VP of Engineering after 30 minutes without acknowledgement. The incident commander for a Sev1 is always an engineering manager, never the on-call engineer. Customer-facing communication is handled by the support lead, not by engineers.

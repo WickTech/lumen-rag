@@ -1,0 +1,2 @@
+# Handling GDPR deletion requests
+A data subject deletion request must be acknowledged within 5 days and completed within 30 days. The privacy officer owns the request and coordinates deletion across the application database, analytics, support tools and backups. Backups are not edited; instead, deleted records are removed when the backup expires after 35 days. Records that must be kept for legal or financial reasons are retained and the requester is told why.

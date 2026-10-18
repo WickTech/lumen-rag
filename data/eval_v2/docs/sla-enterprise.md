@@ -1,0 +1,2 @@
+# Support terms for the Enterprise plan
+Enterprise customers have 24-hour support by phone, chat and email. Critical tickets receive a response within 30 minutes at any hour. The uptime commitment is 99.95 percent per month, and missing it earns a service credit of 25 percent of the monthly fee for the first miss and up to 100 percent in total across a quarter. Each customer has a named technical account manager and a dedicated escalation phone number.

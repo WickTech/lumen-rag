@@ -1,0 +1,2 @@
+# Paid time off for employees in the United States
+Employees on a US contract (Austin office and remote US staff) receive 20 days of paid time off per year, rising to 25 days after three years of service. Up to 10 unused days roll over and there is no expiry date on rolled-over days. A single request of more than 15 consecutive days needs approval from the department head. The ten US federal holidays observed by the company are given in addition to the allowance.

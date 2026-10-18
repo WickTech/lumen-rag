@@ -1,0 +1,2 @@
+# Interview process for engineering roles
+Engineering candidates have a 30 minute recruiter screen, a 60 minute technical phone screen, and a four-part onsite of coding, system design, debugging and a values conversation. A hiring decision needs agreement from at least three of the four interviewers. The recruiting team aims to deliver a decision within 5 business days of the onsite. Candidates are given a take-home exercise only for senior roles.

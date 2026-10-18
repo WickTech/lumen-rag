@@ -1,0 +1,2 @@
+# Visitor policy
+Visitors must be registered by their host in advance, wear a visitor badge and be escorted at all times. Visitors sign a short confidentiality notice at reception. Photography is not allowed in prototyping areas or on warehouse test floors without written approval from the site manager. Contractors working on site for more than 5 days are issued a temporary employee badge instead.

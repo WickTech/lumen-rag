@@ -1,0 +1,2 @@
+# Interview process for sales roles
+Sales candidates have a 30 minute recruiter screen, a hiring manager interview, and a 45 minute role-play in which they present the fleet product to a mock customer. A final interview with the regional sales director follows. There is no coding exercise. Hiring decisions are made by the hiring manager with input from two panellists, and offers are approved by the regional sales director.

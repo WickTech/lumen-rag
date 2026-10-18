@@ -1,0 +1,2 @@
+# IT helpdesk
+The IT helpdesk answers tickets from 08:00 to 18:00 CET on weekdays through the portal or chat. Password resets and access problems have a response target of 30 minutes, while hardware requests have a target of 2 business days. Outside those hours, urgent problems with production access go to the on-call engineer. Staff should not ask colleagues to share their accounts to get around a delay.

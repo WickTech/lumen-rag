@@ -1,0 +1,2 @@
+# Paid leave for employees in Germany and the EU
+Employees on a Halden Robotics EU contract (Frankfurt office and remote EU staff) receive 30 working days of annual paid leave. Up to 5 unused days may be carried into the next year and must be taken by 31 March, after which they expire. Leave requests of more than 10 consecutive days need approval from the department head as well as the line manager. Public holidays are not deducted from the allowance.

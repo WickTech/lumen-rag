@@ -1,0 +1,2 @@
+# Retention of customer account data
+Customer account and contract records are kept for the length of the contract plus 6 years to meet financial record rules. Support tickets are kept for 3 years after closure. Marketing contact data is deleted after 24 months without any interaction. Customer data must be stored in the region the customer selected, either the EU or the United States, and may not be moved without written consent.

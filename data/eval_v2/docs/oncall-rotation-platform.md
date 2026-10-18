@@ -1,0 +1,2 @@
+# On-call rotation for the platform team
+The platform team runs a weekly on-call rotation that changes every Monday at 10:00 UTC. Each shift has a primary and a secondary engineer, and engineers are limited to one week in every five. The primary must acknowledge a page within 10 minutes. Swaps are allowed if both engineers confirm them in the on-call tool at least 48 hours before the shift starts.

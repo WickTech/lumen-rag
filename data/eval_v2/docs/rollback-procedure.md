@@ -1,0 +1,2 @@
+# Rollback procedure
+Any engineer can trigger a rollback of a v2 deployment from the deploy console, and a rollback does not need prior approval. The console restores the previous container image within about 3 minutes. Database migrations are not rolled back automatically; migrations must be written to be backward compatible for one release so that a rollback is safe. A rollback of a deployment with a migration must be confirmed by the on-call database engineer.

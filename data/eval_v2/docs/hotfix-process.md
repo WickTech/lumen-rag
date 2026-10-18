@@ -1,0 +1,2 @@
+# Hotfix process
+A hotfix is a change that bypasses the normal freeze to fix a Sev1 or Sev2 incident or a security vulnerability. It needs approval from one engineering manager and one member of the release team, recorded in the ticket. Hotfixes still require a passing automated test suite but may skip the canary stage for Sev1. Every hotfix is reviewed at the next weekly engineering meeting and gets a follow-up ticket for a permanent fix.

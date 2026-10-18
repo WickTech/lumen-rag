@@ -1,0 +1,2 @@
+# Fleet webhooks
+Webhooks deliver robot and task events to a customer endpoint over HTTPS. Each delivery is signed with HMAC-SHA256 using a secret shown once at creation. Failed deliveries are retried up to 8 times with exponential backoff over 24 hours, after which the event is dropped and the webhook is flagged. Endpoints must respond within 5 seconds. Webhooks are available on Pro and Enterprise plans only.

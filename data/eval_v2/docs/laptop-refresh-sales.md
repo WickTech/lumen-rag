@@ -1,0 +1,2 @@
+# Laptop refresh for sales and customer teams
+Sales, customer success and support staff receive a new laptop every 48 months. The standard model is the 14-inch ultraportable with 16 GB of memory. Because these roles travel more, staff may choose a lighter 13-inch model instead at no extra cost. Replacement before the 48 months are up is only approved for damage or failure, with a repair quote from IT.

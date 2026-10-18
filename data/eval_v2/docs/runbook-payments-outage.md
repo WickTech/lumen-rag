@@ -1,0 +1,2 @@
+# Runbook: payments outage
+When the payments service fails health checks, the on-call engineer first fails traffic over to the standby region using the failover command in the ops console, which takes about 4 minutes. If the failover does not clear errors, enable the read-only checkout banner and page the payments lead. Never restart the ledger database during an outage; that step needs written approval from the finance director. Reconciliation of missed transactions runs automatically within 2 hours of recovery.

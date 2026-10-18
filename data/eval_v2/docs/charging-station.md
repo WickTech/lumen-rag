@@ -1,0 +1,2 @@
+# Charging stations
+Each charging station serves two robots in sequence and delivers 80 percent charge in about 50 minutes for the H200 and 85 minutes for the H400. Stations should be placed at the end of an aisle, at least 3 metres from any racking that stores flammable goods. A site needs one station for every four robots as a minimum. Stations connect to a standard three-phase supply and report their status to the fleet dashboard.

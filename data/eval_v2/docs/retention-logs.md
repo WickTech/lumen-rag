@@ -1,0 +1,2 @@
+# Retention of application logs
+Application and audit logs are kept in hot storage for 30 days and in archive storage for a further 11 months, for a total of one year. Audit logs that record access to customer data are retained for 7 years. Logs must not contain passwords, tokens or full payment card numbers; the logging library redacts these automatically. Developers may extend retention of a single incident log by filing a ticket with the security team.

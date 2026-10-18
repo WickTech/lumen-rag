@@ -1,0 +1,2 @@
+# Status page policy
+The public status page is updated by the support lead, not by engineers. A Sev1 is posted within 15 minutes of declaration and updated at least every 30 minutes until resolved. A Sev2 is posted within 45 minutes. Sev3 incidents are only posted if they last longer than 4 hours. Updates use plain language and never name an individual customer or an internal cause until the postmortem is complete.

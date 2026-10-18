@@ -1,0 +1,2 @@
+# Vendor security review
+Before signing any contract that gives a vendor access to customer data, procurement must obtain a completed security questionnaire and, for vendors handling robot telemetry, a current SOC 2 Type II report. Low-risk vendors are reviewed in about 5 business days; high-risk vendors take up to 4 weeks and need sign-off from the security lead. Approved vendors are reviewed again every 12 months.

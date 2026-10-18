@@ -1,0 +1,2 @@
+# Pilot program
+New customers can run a paid pilot with up to 5 robots for 8 weeks in one site. The pilot costs a fixed fee of 18,000 euros, which is credited in full against the first year's subscription if the customer signs within 30 days of the pilot ending. The pilot includes the site survey, installation and a weekly review with a solutions engineer. Success criteria are agreed in writing before the pilot starts.

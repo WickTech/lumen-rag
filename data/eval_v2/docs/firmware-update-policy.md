@@ -1,0 +1,2 @@
+# Firmware update policy
+Firmware updates are rolled out in three waves: internal test robots first, then 10 percent of customer robots after a week, and the rest after a further two weeks. Customers can defer a non-critical update by up to 60 days. Security updates cannot be deferred and are applied within 14 days of release. Updates are installed only when robots are charging and not carrying a load.

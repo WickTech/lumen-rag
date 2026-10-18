@@ -1,0 +1,2 @@
+# Conference sponsorship
+Sponsorship of a conference above 10,000 euros needs approval from the marketing director and the finance director. Marketing sets the annual conference budget in November and aims for no more than 8 sponsored events per year. Each event needs a defined lead target and the sales team assigns people to the booth at least 6 weeks ahead. Attendee follow-up must start within 5 business days.

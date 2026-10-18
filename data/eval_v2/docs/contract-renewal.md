@@ -1,0 +1,2 @@
+# Contract renewal
+Procurement tracks every vendor contract renewal date and notifies the contract owner 90 days before the end of the term. Contracts with auto-renewal clauses need a decision at least 60 days before renewal. Renewals above 50,000 euros per year need a short business review and the finance director's approval. Contract owners must not agree to extensions by email without procurement.

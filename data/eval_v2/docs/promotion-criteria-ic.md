@@ -1,0 +1,2 @@
+# Promotion criteria for individual contributors
+Promotion to the next level requires sustained performance at that level for at least two consecutive review cycles. The promotion packet must include evidence of scope, impact and mentoring, and is signed off by the manager and one external reviewer from another team. Promotions are announced twice a year, in February and August, and take effect on the first day of the following month.

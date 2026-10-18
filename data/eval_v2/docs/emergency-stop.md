@@ -1,0 +1,2 @@
+# Emergency stop procedure
+Every robot has a red emergency stop button on each side and all robots in a site can be stopped from wireless stop buttons mounted at each aisle end. Pressing a button cuts drive power immediately and applies the brakes in less than 0.5 seconds. After an emergency stop, a trained supervisor must inspect the area before robots are restarted. Every emergency stop must be logged within 24 hours, with its cause.

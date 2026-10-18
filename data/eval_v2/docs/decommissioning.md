@@ -1,0 +1,2 @@
+# Decommissioning a site
+At the end of a contract, Halden collects robots and charging stations within 30 days. Customer data on the robots is wiped before they leave the site and the wipe is certified. The fleet dashboard stays read-only for 60 days so customers can export reports. Racking or floor markings installed by Halden are removed at the customer's cost unless the contract says otherwise.

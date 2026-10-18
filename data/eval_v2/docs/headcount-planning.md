@@ -1,0 +1,2 @@
+# Headcount planning
+New roles must be part of the approved headcount plan. A department head submits a role request with a business case, which is reviewed by the head of people and the finance director every month. Approved roles are valid for 6 months; an unfilled role then lapses and must be requested again. Contractors do not count as headcount but their cost is charged to the department budget.

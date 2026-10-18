@@ -1,0 +1,2 @@
+# H200 picking robot specifications
+The H200 is the compact picking robot for aisles as narrow as 1.2 metres. It carries a payload of up to 35 kilograms, travels at a maximum of 1.8 metres per second, and lifts to a shelf height of 2.4 metres. The battery capacity is 1.4 kilowatt-hours, which gives about 8 hours of continuous operation. The H200 uses a 2D lidar and two depth cameras for navigation.
