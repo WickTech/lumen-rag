@@ -84,12 +84,34 @@ def run_answer_eval(
     judge: str = typer.Option("gpt-4o-mini", help="Judge model for DeepEval metrics."),
     threshold: float = typer.Option(0.5, help="Per-metric pass threshold (0-1)."),
     out: str = typer.Option("", help="Optional path to write per-case JSON results."),
+    claims: bool = typer.Option(
+        False,
+        "--claims",
+        help="Claim-level diagnostics instead of an LLM judge: split each answer into claims, "
+        "align them with the retrieved chunks, and attribute failures to retrieval or generation. "
+        "Works offline.",
+    ),
+    tau: float = typer.Option(0.6, help="With --claims: alignment score a chunk needs to ground a claim (0-1)."),
 ) -> None:
-    """Judge generated answers (faithfulness, relevancy, ...) with DeepEval."""
-    from .eval.answer_quality import evaluate_answers
-
+    """Judge generated answers (DeepEval), or with --claims attribute failures to retrieval vs generation."""
     engine = RagEngine.load()
     cases = load_cases(dataset)
+
+    if claims:
+        from .eval.claims import diagnose_claims
+
+        claim_report = diagnose_claims(
+            engine.retriever, cases, k=k, mode=mode, tau=tau  # type: ignore[arg-type]
+        )
+        typer.echo("\n" + claim_report.pretty() + "\n")
+        typer.echo(json.dumps(claim_report.as_dict()))
+        if out:
+            Path(out).write_text(json.dumps(claim_report.per_case, indent=2), encoding="utf-8")
+            typer.echo(f"Per-case results → {out}")
+        return
+
+    from .eval.answer_quality import evaluate_answers
+
     try:
         report = evaluate_answers(
             engine, cases, k=k, mode=mode, threshold=threshold, judge_model=judge  # type: ignore[arg-type]
