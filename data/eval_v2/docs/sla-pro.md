@@ -1,0 +1,2 @@
+# Support terms for the Pro plan
+Pro customers receive email and chat support from 07:00 to 19:00 UTC on weekdays. Critical tickets receive a first response within 2 hours and other tickets within 6 business hours. The contractual uptime commitment is 99.9 percent per month, measured on fleet control and the API. Missing the commitment earns a service credit of 10 percent of the monthly fee for each 0.1 percentage point below target, capped at 50 percent.

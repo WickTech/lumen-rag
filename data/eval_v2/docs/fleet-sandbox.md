@@ -1,0 +1,2 @@
+# Sandbox environment
+The sandbox is a free environment with simulated robots for development, available to all customers and to registered developers. It supports up to 10 virtual robots and resets its data every Sunday at 00:00 UTC. API limits in the sandbox are 120 requests per minute regardless of plan. Webhooks work in the sandbox for testing, even for customers whose plan does not include them in production.

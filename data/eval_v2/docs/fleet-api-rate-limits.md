@@ -1,0 +1,2 @@
+# Fleet API rate limits
+The fleet API enforces limits per customer: 60 requests per minute on Starter, 600 on Pro and 6,000 on Enterprise. When the limit is exceeded the API returns status 429 and a Retry-After header with the number of seconds to wait. Bulk endpoints for position history count as 10 requests per call. Burst traffic up to twice the limit for 10 seconds is tolerated before throttling starts.

@@ -1,0 +1,2 @@
+# Paid leave for employees in India
+Employees at the Pune office receive 24 days of paid leave per year, credited at the start of the calendar year. Up to 12 unused days may be encashed in December at the basic daily rate, or carried forward, but not both. Leave of more than 7 consecutive days requires two weeks of notice. The company calendar lists 14 gazetted holidays that are not deducted from the allowance.

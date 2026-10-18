@@ -182,34 +182,59 @@ CI runs on Python 3.10 & 3.12: lint → pytest → `check_eval.py` (enforces rec
 
 ---
 
-## 📊 Benchmarks — what chunking and hybrid retrieval actually buy you
+## 📊 Benchmarks — what chunking and retrieval mode actually buy you
 
-Measured with `scripts/benchmark.py` on the bundled 7-document / 19-question
-reference corpus (`data/docs` + `data/eval.jsonl`), offline hashing embedder,
-k=5. Reproduce with `python scripts/benchmark.py`.
+Measured with `scripts/benchmark.py`, offline hashing embedder, no reranker, k=5.
+Two eval sets ship with the repo:
+
+- **v1** — `data/docs` (7 files) + `data/eval.jsonl` (19 questions). A fast smoke
+  test, but **saturated**: k=5 returns 5 of the 7 documents, so recall is ~1.0
+  for any configuration and tells you nothing.
+- **v2** — `data/eval_v2` (120 short docs, 176 questions in five categories:
+  direct, paraphrase, disambiguation, multihop, unanswerable). Built so that
+  configurations can be told apart; see [`data/eval_v2/README.md`](data/eval_v2/README.md).
+
+Reproduce with `python scripts/benchmark.py` (v1) or `python scripts/benchmark.py --set v2`.
+
+### v2 (discriminating)
 
 | Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
 |---|---|---|---|---|---|
-| naive (1 chunk/doc, vector-only) | 0.97 | 0.20 | 0.93 | 0.94 | 1.00 |
-| + sentence chunking (vector-only) | 0.97 | 0.20 | **0.97** | **0.97** | 1.00 |
-| + hybrid (BM25 + RRF) | 0.97 | 0.20 | **0.97** | **0.97** | 1.00 |
+| vector-only | 0.74 | 0.17 | 0.69 | 0.69 | 0.78 |
+| BM25 only | **0.90** | 0.21 | **0.88** | **0.87** | **0.94** |
+| hybrid (BM25 + RRF) | 0.82 | 0.19 | 0.73 | 0.74 | 0.86 |
 
-Recall and hit-rate are already saturated on this reference corpus (the right
-document almost always makes the top 5), so the honest signal is in
-**ranking quality**: sentence-aware chunking lifts MRR and nDCG@5 from 0.93 →
-0.97 by fixing a real failure mode — a long, multi-topic document's
-whole-document embedding gets diluted by unrelated sections, so the correct
-doc sometimes ranks 2nd or 3rd instead of 1st. Chunking isolates the
-answer-bearing passage so it wins on its own merits.
+MRR by question category (153 answerable questions; the 23 unanswerable ones are counted, not scored):
 
-Hybrid ties chunked-vector here because the offline hashing embedder is
-itself a bag-of-words signal, close in kind to BM25 — the two rankers agree.
-Hybrid's real edge (catching exact rare-term/numeric matches a semantic
-embedding under-weights) shows up more with `OPENAI_API_KEY` set and on
-noisier, larger corpora; see [`docs/case-study.md`](docs/case-study.md) for
-the full writeup and methodology.
+| Configuration | direct | disambiguation | multihop | paraphrase |
+|---|---|---|---|---|
+| vector-only | 0.84 | 0.77 | 0.67 | 0.54 |
+| BM25 only | 0.98 | 0.89 | 0.86 | 0.80 |
+| hybrid (BM25 + RRF) | 0.84 | 0.78 | 0.76 | 0.59 |
+
+Paraphrased and multi-hop questions are the hard cases for the offline embedder.
+Hybrid lands between its two inputs here: the hashing embedder is a weak,
+bag-of-words dense signal, so fusing it with BM25 pulls the ranking *down* from
+BM25 alone. That is a property of this offline embedder, not of hybrid retrieval
+in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes it.
+
+### v1 (smoke test)
+
+| Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
+|---|---|---|---|---|---|
+| naive (1 chunk/doc, vector-only) | 1.00 | 0.21 | 0.96 | 0.98 | 1.00 |
+| + sentence chunking (vector-only) | 0.97 | 0.20 | **1.00** | 0.98 | 1.00 |
+| BM25 only (sentence chunking) | 0.97 | 0.20 | 0.96 | 0.96 | 1.00 |
+| hybrid (BM25 + RRF, sentence chunking) | 0.97 | 0.20 | 0.97 | 0.97 | 1.00 |
+
+> **Correction (2026-10-18):** earlier versions of this table (and
+> [`docs/case-study.md`](docs/case-study.md)) reported naive MRR 0.93 and "+ hybrid"
+> equal to chunked-vector. `evaluate()` did not apply the retrieval mode, so every
+> row had in fact been measured in hybrid mode and the "vector-only" labels were
+> wrong. `evaluate()` now takes `mode=`, and the numbers above are the real ones.
 
 ---
+
 
 ## 🗺️ Roadmap
 

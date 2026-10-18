@@ -1,0 +1,2 @@
+# Social media policy
+Employees may share company news on their personal accounts but must say they are speaking for themselves when discussing the industry. Confidential information, customer names that are not already public and unreleased product details may never be posted. Only the communications team publishes on the official company channels. Employees who see a negative or false post should not engage and instead send it to communications.

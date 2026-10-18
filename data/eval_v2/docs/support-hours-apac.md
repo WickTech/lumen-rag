@@ -1,0 +1,2 @@
+# Support coverage for Asia Pacific
+The Pune office provides business-hours support for customers in India, Singapore, Japan and Australia from 06:00 to 15:00 UTC on weekdays. Outside those hours, Pro tickets from Asia Pacific are routed to the Frankfurt team, so the response targets stay the same. Enterprise customers in the region use the 24-hour phone line. Local public holidays in India do not change the response targets because Frankfurt covers them.

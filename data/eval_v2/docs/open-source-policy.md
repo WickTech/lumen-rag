@@ -1,0 +1,2 @@
+# Open source usage policy
+Engineers may use open source libraries under the MIT, Apache 2.0 and BSD licences without approval. Libraries under the GPL and AGPL licences may not be included in shipped robot software or in the cloud platform, because of their copyleft terms. Any other licence needs approval from the legal team. Contributions to external projects on company time need the engineering director's sign-off.

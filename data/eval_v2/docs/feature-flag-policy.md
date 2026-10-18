@@ -1,0 +1,2 @@
+# Feature flag policy
+Every user-visible change on v2 ships behind a feature flag. Flags have an owner and an expiry date set when the flag is created, with a maximum lifetime of 90 days. Expired flags are reported weekly and the owning team must remove the flag or request an extension of 30 days. Flags that control billing behaviour need sign-off from the finance engineering lead before they are turned on for customers.

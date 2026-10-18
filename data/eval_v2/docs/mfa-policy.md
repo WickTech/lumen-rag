@@ -1,0 +1,2 @@
+# Multi-factor authentication policy
+All employees must use multi-factor authentication for email, the code repository, the cloud console and the VPN. Hardware security keys are mandatory for engineers with production access, and text message codes are not accepted for any system. Each employee registers two keys, one primary and one backup stored at home. A lost key must be reported to the security team within 24 hours so it can be revoked.

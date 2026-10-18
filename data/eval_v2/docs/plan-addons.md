@@ -1,0 +1,2 @@
+# Plan add-ons
+Optional add-ons can be attached to Pro and Enterprise plans. The predictive maintenance module costs 900 euros per month. The advanced analytics workspace costs 1,500 euros per month. Extra API capacity is sold in packs of 1,000 requests per minute for 400 euros per month. The simulation sandbox, used to test new layouts before deployment, is included free for Enterprise customers and costs 600 euros per month on Pro.

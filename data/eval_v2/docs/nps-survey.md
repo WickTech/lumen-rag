@@ -1,0 +1,2 @@
+# Customer satisfaction survey
+The net promoter score survey is sent to site leads and technical contacts every 6 months. Detractors with a score of 6 or lower receive a call from their customer success manager within 3 business days. The score is reported in the monthly executive review. The target score is 45 or higher. Individual survey responses are visible only to customer success and the executive team.

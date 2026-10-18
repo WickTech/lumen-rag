@@ -1,0 +1,2 @@
+# Press policy
+Only the head of communications and the chief executive may speak to journalists on behalf of the company. Employees who are contacted by the press forward the request to the communications team within 1 business day and do not comment. Press releases are approved by communications, legal and the chief executive. Embargoed material may only be shared with journalists after the signed embargo agreement.

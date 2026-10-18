@@ -1,0 +1,2 @@
+# Support escalation path
+Tickets that miss the first response target are flagged automatically to the shift supervisor. A ticket open for more than 3 days is reviewed by the support lead, and one open for more than 7 days is reviewed by the director of customer operations. Customers can request an escalation at any time by replying with the word ESCALATE, which creates a high priority ticket and notifies the account owner.

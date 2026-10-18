@@ -1,0 +1,2 @@
+# Fleet API authentication
+API requests are authenticated with bearer tokens. Access tokens expire after 1 hour and are renewed with a refresh token valid for 30 days. Tokens are scoped read-only or read-write, and read-write tokens can be restricted to specific sites. Personal tokens for individual developers are limited to the sandbox environment. A revoked token stops working within 60 seconds.

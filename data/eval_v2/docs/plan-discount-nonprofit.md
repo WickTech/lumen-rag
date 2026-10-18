@@ -1,0 +1,2 @@
+# Discounts for non-profit and academic customers
+Registered non-profit organisations and accredited universities receive a 30 percent discount on Starter and Pro plans. The discount does not apply to add-ons or to Enterprise contracts, which are negotiated individually. Eligibility must be confirmed with documentation and renewed every year. The discount cannot be combined with the annual billing offer of two free months.

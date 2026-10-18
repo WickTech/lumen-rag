@@ -1,0 +1,2 @@
+# Churn risk playbook
+An account is flagged at risk when robot utilisation falls by more than 30 percent over two months, when a critical ticket stays open for more than 5 days, or when the customer's champion leaves. The customer success manager contacts the customer within 2 business days and prepares a recovery plan. Accounts at risk with contract value above 100,000 euros are reviewed weekly by the director of customer operations.

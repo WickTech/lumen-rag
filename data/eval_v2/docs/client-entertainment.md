@@ -1,0 +1,2 @@
+# Client entertainment
+Entertainment of customers and prospects is capped at 80 euros per person for a dinner and 40 euros per person for lunch. Spend above 500 euros per event needs advance approval from the regional sales director. Gifts to customers are limited to 50 euros in value and must be logged in the gifts register, because many customers have their own gift rules. Government officials may never receive gifts or entertainment.

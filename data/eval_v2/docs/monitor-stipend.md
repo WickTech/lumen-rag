@@ -1,0 +1,2 @@
+# Monitor and desk stipend
+Every employee can claim a one-time stipend of 300 euros, or the equivalent in local currency, for an external monitor and a further 200 for a desk or chair. The stipend is claimed through the expense tool with an itemised receipt and must be used within 90 days of the start date. The stipend is not renewed when a laptop is refreshed. Items remain the property of the employee after leaving.

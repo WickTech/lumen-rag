@@ -1,0 +1,2 @@
+# Remote work grant
+Fully remote employees receive an annual grant of 600 euros for internet, electricity and coworking costs, paid in two instalments in January and July. Employees who work from the office at least three days a week are not eligible. The grant is taxable income in Germany and India and non-taxable in the United States under current company advice. It is paid through payroll and does not need receipts.

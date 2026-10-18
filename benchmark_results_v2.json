@@ -1,0 +1,131 @@
+{
+  "set": "v2",
+  "k": 5,
+  "n_cases": 153,
+  "n_unanswerable": 23,
+  "results": [
+    {
+      "config": "vector-only",
+      "mode": "vector",
+      "k": 5,
+      "n_cases": 153,
+      "recall@k": 0.7418,
+      "precision@k": 0.1686,
+      "mrr": 0.6932,
+      "ndcg@k": 0.685,
+      "hit_rate": 0.7843,
+      "by_category": {
+        "direct": {
+          "n": 42,
+          "recall@k": 0.881,
+          "mrr": 0.8393,
+          "ndcg@k": 0.8498,
+          "hit_rate": 0.881
+        },
+        "paraphrase": {
+          "n": 51,
+          "recall@k": 0.6667,
+          "mrr": 0.5373,
+          "ndcg@k": 0.5692,
+          "hit_rate": 0.6667
+        },
+        "disambiguation": {
+          "n": 31,
+          "recall@k": 0.871,
+          "mrr": 0.7742,
+          "ndcg@k": 0.7995,
+          "hit_rate": 0.871
+        },
+        "multihop": {
+          "n": 29,
+          "recall@k": 0.5345,
+          "mrr": 0.6695,
+          "ndcg@k": 0.5274,
+          "hit_rate": 0.7586
+        }
+      }
+    },
+    {
+      "config": "BM25 only",
+      "mode": "bm25",
+      "k": 5,
+      "n_cases": 153,
+      "recall@k": 0.902,
+      "precision@k": 0.2092,
+      "mrr": 0.8779,
+      "ndcg@k": 0.8668,
+      "hit_rate": 0.9412,
+      "by_category": {
+        "direct": {
+          "n": 42,
+          "recall@k": 1.0,
+          "mrr": 0.9762,
+          "ndcg@k": 0.9824,
+          "hit_rate": 1.0
+        },
+        "paraphrase": {
+          "n": 51,
+          "recall@k": 0.8824,
+          "mrr": 0.7987,
+          "ndcg@k": 0.8196,
+          "hit_rate": 0.8824
+        },
+        "disambiguation": {
+          "n": 31,
+          "recall@k": 0.9355,
+          "mrr": 0.8871,
+          "ndcg@k": 0.8998,
+          "hit_rate": 0.9355
+        },
+        "multihop": {
+          "n": 29,
+          "recall@k": 0.7586,
+          "mrr": 0.8649,
+          "ndcg@k": 0.7473,
+          "hit_rate": 0.9655
+        }
+      }
+    },
+    {
+      "config": "hybrid (BM25 + RRF)",
+      "mode": "hybrid",
+      "k": 5,
+      "n_cases": 153,
+      "recall@k": 0.8203,
+      "precision@k": 0.1908,
+      "mrr": 0.7306,
+      "ndcg@k": 0.737,
+      "hit_rate": 0.8562,
+      "by_category": {
+        "direct": {
+          "n": 42,
+          "recall@k": 0.9524,
+          "mrr": 0.8448,
+          "ndcg@k": 0.8714,
+          "hit_rate": 0.9524
+        },
+        "paraphrase": {
+          "n": 51,
+          "recall@k": 0.7255,
+          "mrr": 0.5912,
+          "ndcg@k": 0.6247,
+          "hit_rate": 0.7255
+        },
+        "disambiguation": {
+          "n": 31,
+          "recall@k": 0.9032,
+          "mrr": 0.7806,
+          "ndcg@k": 0.812,
+          "hit_rate": 0.9032
+        },
+        "multihop": {
+          "n": 29,
+          "recall@k": 0.7069,
+          "mrr": 0.7569,
+          "ndcg@k": 0.6597,
+          "hit_rate": 0.8966
+        }
+      }
+    }
+  ]
+}

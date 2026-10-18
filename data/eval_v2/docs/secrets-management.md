@@ -1,0 +1,2 @@
+# Secrets management
+Application secrets such as API keys and database passwords are stored only in the central vault and never in source code, chat or tickets. Secrets rotate automatically every 90 days, and production database credentials rotate every 30 days. If a secret is found in a repository, it is treated as compromised: the secret is revoked within 1 hour and the commit history is cleaned afterwards. Secret scanning runs on every pull request.

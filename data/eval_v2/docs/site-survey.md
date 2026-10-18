@@ -1,0 +1,2 @@
+# Site survey
+Before any deployment a Halden solutions engineer visits the warehouse for a site survey, which takes one to two days. The survey measures aisle widths, floor flatness and slopes, and checks for reflective surfaces that can disturb lidar. Floors must be flat within 5 millimetres over 2 metres. The survey report is delivered within 7 business days and forms the basis of the layout proposal and the quote.

@@ -1,0 +1,2 @@
+# Purchasing thresholds
+Purchases up to 1,000 euros can be made by any budget owner with a corporate card. Purchases between 1,000 and 25,000 euros need a purchase order approved by the department head. Purchases above 25,000 euros need three written quotes and approval from the finance director, and above 100,000 euros from the chief executive. Splitting a purchase to stay under a threshold is a policy violation.

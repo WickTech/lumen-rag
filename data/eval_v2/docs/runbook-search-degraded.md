@@ -1,0 +1,2 @@
+# Runbook: search degraded
+Slow or incomplete robot-inventory search is usually caused by index lag. The on-call engineer checks the indexer queue depth and, if it exceeds 50,000 messages, scales indexer workers from 4 to 12. A full re-index takes about 6 hours and is only started with approval from the data lead, because it doubles read load on the primary database. Search incidents are Sev3 unless results are empty for all customers.

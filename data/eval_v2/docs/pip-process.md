@@ -1,0 +1,2 @@
+# Performance improvement plans
+A performance improvement plan lasts 60 days and is written by the manager together with an HR partner. It sets out clear measurable goals and a check-in every two weeks. The employee may bring a colleague to review meetings. If the goals are met the plan is closed and the employee is not marked as underperforming in the next review; if not, the manager and HR discuss next steps, which may include termination.

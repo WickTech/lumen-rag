@@ -1,0 +1,2 @@
+# Expense claims and reimbursement
+Expense claims must be submitted within 45 days of the purchase date; later claims are rejected unless the finance team approves an exception. Claims under 100 euros are approved automatically by the line manager, claims between 100 and 1000 euros need the manager and the cost-centre owner, and anything above 1000 needs the finance director. Approved claims are paid in the next payroll run, normally within 10 working days.

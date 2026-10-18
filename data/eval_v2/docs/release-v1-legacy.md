@@ -1,0 +1,2 @@
+# Release process for the legacy v1 fleet software
+The legacy v1 fleet software is released quarterly on the first Tuesday of March, June, September and December. Each release goes through a two-week freeze, and the release manager signs off after a full regression run of about 9 hours. Customers on v1 receive 30 days notice before an upgrade is applied. Support for v1 ends on 30 June 2027, and no new features are added after the end of this year.

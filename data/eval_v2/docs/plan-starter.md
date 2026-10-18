@@ -1,0 +1,2 @@
+# Starter plan
+The Starter plan costs 2,400 euros per month and supports up to 25 robots in a single warehouse site. It includes the standard fleet dashboard, the REST API with 60 requests per minute, and email support. The plan does not include webhooks, single sign-on or custom reports. Customers can upgrade to Pro at any time and the unused part of the month is credited. Annual billing gives two months free.

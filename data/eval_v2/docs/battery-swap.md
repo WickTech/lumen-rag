@@ -1,0 +1,2 @@
+# Battery swapping
+Both robot models support hot swapping, which lets a technician replace the battery in under 90 seconds without powering down the control system. Spare batteries must be stored at between 10 and 25 degrees Celsius and may not be charged unattended overnight. A battery is retired after 1,200 charge cycles or when capacity falls below 70 percent of the original, whichever comes first. Retired batteries are returned to Halden for recycling.

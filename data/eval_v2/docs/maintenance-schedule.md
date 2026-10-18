@@ -1,0 +1,2 @@
+# Maintenance schedule
+Robots receive a basic inspection every 500 operating hours, covering wheels, lidar windows and the lift chain. A full service every 2,000 operating hours includes replacing drive belts and calibrating sensors. Customers on the Pro and Enterprise plans have these services performed on site by Halden technicians; Starter customers perform the basic inspection themselves and book the full service as a paid visit.

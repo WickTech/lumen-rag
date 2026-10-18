@@ -1,0 +1,2 @@
+# Go-live checklist
+A site goes live only after the checklist is complete: all robots calibrated, network test passed, emergency stops tested at every aisle end, staff trained on safety zones, and the fleet dashboard accounts created. A supervisor and the Halden deployment lead both sign the checklist. The first two weeks after go-live have extra on-site support, with a Halden technician present for at least 4 hours every working day.

@@ -1,0 +1,2 @@
+# Laptop encryption and lock rules
+All company laptops use full-disk encryption, enabled by IT during setup. Screens lock automatically after 5 minutes of inactivity. Laptops may not be left in vehicles overnight. A lost or stolen laptop must be reported to IT within 4 hours so it can be remotely locked and wiped. Employees are not allowed to disable the endpoint protection agent for any reason, including performance problems.
