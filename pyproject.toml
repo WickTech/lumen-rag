@@ -25,6 +25,7 @@ docx = ["python-docx>=1.1"]
 loaders = ["pypdf>=4.0", "python-docx>=1.1"]
 docling = ["docling>=2.0"]
 rerank = ["fastembed>=0.5"]
+pgvector = ["psycopg[binary]>=3.2"]
 answer-eval = ["deepeval>=3.0", "openai>=1.55"]
 # ruff pinned exactly: new releases widen the default rule set and break CI.
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff==0.17.0"]
@@ -42,6 +43,9 @@ packages = ["lumen_rag"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "pgvector: needs a Postgres with the pgvector extension; set LUMEN_TEST_PG_DSN (skipped otherwise)",
+]
 
 [tool.ruff]
 line-length = 100
