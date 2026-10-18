@@ -24,7 +24,7 @@ reranking — instead of vibes.
 | | |
 |---|---|
 | **Tests** | 41/41 passing — chunker, vector store, BM25, RRF, loaders, IR metrics, end-to-end |
-| **CI** | GitHub Actions: lint (ruff) → pytest → eval regression guard on every push |
+| **CI** | GitHub Actions: lint (ruff) → pytest → eval regression guard → v2 set validation; a separate job comments retrieval metric deltas on every PR |
 | **Python** | 3.10 and 3.12 tested |
 | **Offline** | Full pipeline runs with zero API keys or network access |
 | **Deployment** | `Dockerfile` ready; FastAPI server on port 8000; [hosted demo on HF Spaces](https://huggingface.co/spaces/WickTech/lumen-rag) |
@@ -113,7 +113,9 @@ lumen_rag/
 │   └── static/      interactive demo UI, served at /
 ├── cli.py           lumen ingest | ask | eval | serve
 └── scripts/
-    └── check_eval.py  eval regression guard (enforces score thresholds)
+    ├── check_eval.py  eval regression guard (enforces score thresholds)
+    ├── eval_report.py PR bot: v2 metrics for head and base, markdown diff, fails on regression
+    └── validate_eval_set.py  eval set consistency checks
 ```
 
 ---
@@ -173,12 +175,26 @@ print(engine.query("How much vacation do I get?").text)
 ## 🧪 Testing
 
 ```bash
-pytest -q                                                   # 41 tests, all offline
-ruff check .                                                # lint
-python scripts/check_eval.py data/eval.jsonl --k 3          # eval regression guard
+pytest -q                                                   # 70 tests, all offline
+ruff check lumen_rag tests                                  # lint
+python scripts/check_eval.py data/eval.jsonl --k 3          # eval regression guard (v1 smoke set)
+python scripts/validate_eval_set.py                         # eval set v2 consistency
+python scripts/eval_report.py run --root . --out head.json  # v2 metrics, same as the PR bot
 ```
 
 CI runs on Python 3.10 & 3.12: lint → pytest → `check_eval.py` (enforces recall@k ≥ 0.80, hit\_rate ≥ 0.80, mrr ≥ 0.70). The build fails if scores drop.
+
+### PR eval report
+
+Every pull request that touches `lumen_rag/`, `data/eval_v2/` or the report script gets a
+sticky comment with the retrieval metrics (recall@5, MRR, nDCG@5, plus MRR per question
+category) for vector, BM25 and hybrid search on the [v2 eval set](data/eval_v2/README.md),
+measured on the PR head **and** on its base commit, with the deltas. The
+[`Eval report`](.github/workflows/eval-report.yml) job fails if any tracked metric drops
+by more than 0.01. Retrieval is deterministic offline (hashing embedder, no reranker), so a
+drop is a real change, not noise. If a PR changes the eval set itself the numbers are shown
+but marked not comparable and never block the merge. Fork PRs cannot receive the comment
+(read-only token); the report is in the job summary instead.
 
 ---
 
@@ -242,6 +258,7 @@ in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes 
 - [x] **PDF / DOCX / HTML ingestion** — document loaders with clean text extraction
 - [x] **Streaming answers** — server-sent events on `POST /query/stream`
 - [x] **Eval regression guard** — `scripts/check_eval.py` in CI; build fails if recall drops
+- [x] **PR eval report** — sticky PR comment with metric deltas on the v2 eval set; fails on a drop over 0.01
 - [ ] **pgvector / Qdrant / Pinecone adapters** — swap the in-memory store for a production vector DB without touching engine callers
 - [x] **Cross-encoder reranker** — second-stage BGE reranking via fastembed (`LUMEN_RERANKER`)
 - [x] **Layout-aware ingestion** — Docling backend for PDF/DOCX/PPTX/HTML (`LUMEN_DOCLING=1`)
