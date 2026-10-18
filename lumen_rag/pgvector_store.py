@@ -67,32 +67,56 @@ class PgVectorStore:
         # Identifiers go through psycopg.sql so they are quoted, never string-formatted;
         # the regex above additionally restricts them to plain lowercase names.
         self._t = sql.Identifier(table)
+        self._build_queries()
         self._conn = psycopg.connect(dsn, autocommit=True)
         self._ensure_schema(index)
 
+    def _build_queries(self) -> None:
+        """Compose every statement once; execute() only ever receives a finished query object."""
+        sql, t = self._sql, self._t
+        self._q_create_table = sql.SQL(
+            """CREATE TABLE IF NOT EXISTS {t} (
+                seq bigserial PRIMARY KEY,
+                namespace text NOT NULL,
+                id text NOT NULL,
+                doc_id text NOT NULL,
+                text text NOT NULL,
+                metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb,
+                embedding vector({dim}) NOT NULL,
+                UNIQUE (namespace, id)
+            )"""
+        ).format(t=t, dim=sql.Literal(self.dim))
+        self._q_create_ns_index = sql.SQL("CREATE INDEX IF NOT EXISTS {idx} ON {t} (namespace)").format(
+            idx=sql.Identifier(f"{self.table}_namespace_idx"), t=t
+        )
+        self._q_create_hnsw = sql.SQL(
+            "CREATE INDEX IF NOT EXISTS {idx} ON {t} USING hnsw (embedding vector_cosine_ops)"
+        ).format(idx=sql.Identifier(f"{self.table}_embedding_hnsw"), t=t)
+        self._q_count = sql.SQL("SELECT count(*) FROM {t} WHERE namespace = %s").format(t=t)
+        self._q_insert = sql.SQL(
+            """INSERT INTO {t} (namespace, id, doc_id, text, metadata, embedding)
+                VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector)
+                ON CONFLICT (namespace, id) DO UPDATE SET
+                    doc_id = EXCLUDED.doc_id, text = EXCLUDED.text,
+                    metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding"""
+        ).format(t=t)
+        self._q_search = sql.SQL(
+            """SELECT id, doc_id, text, metadata, 1 - (embedding <=> %s::vector) AS score
+                FROM {t}
+                WHERE namespace = %s
+                ORDER BY embedding <=> %s::vector, seq
+                LIMIT %s"""
+        ).format(t=t)
+        self._q_chunks = sql.SQL(
+            "SELECT id, doc_id, text, metadata FROM {t} WHERE namespace = %s ORDER BY seq"
+        ).format(t=t)
+        self._q_clear = sql.SQL("DELETE FROM {t} WHERE namespace = %s").format(t=t)
+
     # --- schema -------------------------------------------------------------
     def _ensure_schema(self, index: str) -> None:
-        sql, t = self._sql, self._t
         self._conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        self._conn.execute(
-            sql.SQL(
-                """CREATE TABLE IF NOT EXISTS {t} (
-                    seq bigserial PRIMARY KEY,
-                    namespace text NOT NULL,
-                    id text NOT NULL,
-                    doc_id text NOT NULL,
-                    text text NOT NULL,
-                    metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb,
-                    embedding vector({dim}) NOT NULL,
-                    UNIQUE (namespace, id)
-                )"""
-            ).format(t=t, dim=sql.Literal(self.dim))
-        )
-        self._conn.execute(
-            sql.SQL("CREATE INDEX IF NOT EXISTS {idx} ON {t} (namespace)").format(
-                idx=sql.Identifier(f"{self.table}_namespace_idx"), t=t
-            )
-        )
+        self._conn.execute(self._q_create_table)
+        self._conn.execute(self._q_create_ns_index)
         existing = self._conn.execute(
             "SELECT atttypmod FROM pg_attribute WHERE attrelid = %s::regclass AND attname = 'embedding'",
             (self.table,),
@@ -103,18 +127,11 @@ class PgVectorStore:
                 f"but this store expects {self.dim}"
             )
         if index == "hnsw":
-            self._conn.execute(
-                sql.SQL("CREATE INDEX IF NOT EXISTS {idx} ON {t} USING hnsw (embedding vector_cosine_ops)").format(
-                    idx=sql.Identifier(f"{self.table}_embedding_hnsw"), t=t
-                )
-            )
+            self._conn.execute(self._q_create_hnsw)
 
     # --- Store interface ----------------------------------------------------
     def __len__(self) -> int:
-        row = self._conn.execute(
-            self._sql.SQL("SELECT count(*) FROM {t} WHERE namespace = %s").format(t=self._t),
-            (self.namespace,),
-        ).fetchone()
+        row = self._conn.execute(self._q_count, (self.namespace,)).fetchone()
         return int(row[0])
 
     def add(self, chunks: list[Chunk], vectors: np.ndarray) -> None:
@@ -128,42 +145,19 @@ class PgVectorStore:
         ]
         # Re-ingesting a chunk id replaces it (the in-memory store would keep both copies).
         with self._conn.transaction(), self._conn.cursor() as cur:
-            cur.executemany(
-                self._sql.SQL(
-                    """INSERT INTO {t} (namespace, id, doc_id, text, metadata, embedding)
-                        VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector)
-                        ON CONFLICT (namespace, id) DO UPDATE SET
-                            doc_id = EXCLUDED.doc_id, text = EXCLUDED.text,
-                            metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding"""
-                ).format(t=self._t),
-                rows,
-            )
+            cur.executemany(self._q_insert, rows)
 
     def search(self, query_vec: np.ndarray, k: int = 5) -> list[ScoredChunk]:
         if k < 1:
             return []
         literal = _vector_literal(query_vec)
-        rows = self._conn.execute(
-            self._sql.SQL(
-                """SELECT id, doc_id, text, metadata, 1 - (embedding <=> %s::vector) AS score
-                    FROM {t}
-                    WHERE namespace = %s
-                    ORDER BY embedding <=> %s::vector, seq
-                    LIMIT %s"""
-            ).format(t=self._t),
-            (literal, self.namespace, literal, k),
-        ).fetchall()
+        rows = self._conn.execute(self._q_search, (literal, self.namespace, literal, k)).fetchall()
         return [
             ScoredChunk(Chunk(id=r[0], text=r[2], doc_id=r[1], metadata=r[3] or {}), float(r[4])) for r in rows
         ]
 
     def chunks(self) -> list[Chunk]:
-        rows = self._conn.execute(
-            self._sql.SQL("SELECT id, doc_id, text, metadata FROM {t} WHERE namespace = %s ORDER BY seq").format(
-                t=self._t
-            ),
-            (self.namespace,),
-        ).fetchall()
+        rows = self._conn.execute(self._q_chunks, (self.namespace,)).fetchall()
         return [Chunk(id=r[0], text=r[2], doc_id=r[1], metadata=r[3] or {}) for r in rows]
 
     def save(self, directory: str | Path) -> None:
@@ -172,9 +166,7 @@ class PgVectorStore:
     # --- extras -------------------------------------------------------------
     def clear(self) -> int:
         """Delete every chunk in this namespace and return how many were removed."""
-        cur = self._conn.execute(
-            self._sql.SQL("DELETE FROM {t} WHERE namespace = %s").format(t=self._t), (self.namespace,)
-        )
+        cur = self._conn.execute(self._q_clear, (self.namespace,))
         return cur.rowcount
 
     def close(self) -> None:
