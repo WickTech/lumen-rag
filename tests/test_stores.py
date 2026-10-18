@@ -95,7 +95,7 @@ def test_engine_load_reconnects_instead_of_reading_files_for_database_stores(mon
     assert engine.store is sentinel
 
 
-@pytest.mark.parametrize("table", ["Robert'; DROP TABLE x;--", "has space", "1abc", "", "a" * 64, "UPPER"])
+@pytest.mark.parametrize("table", ["Robert'; DROP TABLE x;--", "has space", "1abc", "", "a" * 41, "UPPER"])
 def test_pgvector_rejects_unsafe_table_names_before_connecting(table):
     with pytest.raises(ValueError, match="invalid table name"):
         PgVectorStore("postgresql://nowhere", dim=8, table=table)

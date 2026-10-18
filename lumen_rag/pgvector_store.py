@@ -25,7 +25,8 @@ from .store import Chunk, ScoredChunk
 if TYPE_CHECKING:  # annotation only; pydantic already depends on typing_extensions
     from typing_extensions import Self
 
-_IDENTIFIER_RE = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+# Up to 40 characters so derived index names (e.g. <table>_embedding_hnsw) fit in 63.
+_IDENTIFIER_RE = re.compile(r"^[a-z_][a-z0-9_]{0,39}$")
 
 
 def _vector_literal(vec: np.ndarray) -> str:
@@ -53,6 +54,7 @@ class PgVectorStore:
             raise ValueError("dim must be positive")
         try:
             import psycopg
+            from psycopg import sql
         except ImportError as e:
             raise ImportError(
                 "psycopg is required for the pgvector store. Install it with: pip install 'lumen-rag[pgvector]'"
@@ -61,43 +63,57 @@ class PgVectorStore:
         self.dim = dim
         self.namespace = namespace
         self.table = table
+        self._sql = sql
+        # Identifiers go through psycopg.sql so they are quoted, never string-formatted;
+        # the regex above additionally restricts them to plain lowercase names.
+        self._t = sql.Identifier(table)
         self._conn = psycopg.connect(dsn, autocommit=True)
         self._ensure_schema(index)
 
     # --- schema -------------------------------------------------------------
     def _ensure_schema(self, index: str) -> None:
-        t = self.table
+        sql, t = self._sql, self._t
         self._conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
         self._conn.execute(
-            f"""CREATE TABLE IF NOT EXISTS {t} (
-                seq bigserial PRIMARY KEY,
-                namespace text NOT NULL,
-                id text NOT NULL,
-                doc_id text NOT NULL,
-                text text NOT NULL,
-                metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb,
-                embedding vector({self.dim}) NOT NULL,
-                UNIQUE (namespace, id)
-            )"""
+            sql.SQL(
+                """CREATE TABLE IF NOT EXISTS {t} (
+                    seq bigserial PRIMARY KEY,
+                    namespace text NOT NULL,
+                    id text NOT NULL,
+                    doc_id text NOT NULL,
+                    text text NOT NULL,
+                    metadata jsonb NOT NULL DEFAULT '{{}}'::jsonb,
+                    embedding vector({dim}) NOT NULL,
+                    UNIQUE (namespace, id)
+                )"""
+            ).format(t=t, dim=sql.Literal(self.dim))
         )
-        self._conn.execute(f"CREATE INDEX IF NOT EXISTS {t}_namespace_idx ON {t} (namespace)")
+        self._conn.execute(
+            sql.SQL("CREATE INDEX IF NOT EXISTS {idx} ON {t} (namespace)").format(
+                idx=sql.Identifier(f"{self.table}_namespace_idx"), t=t
+            )
+        )
         existing = self._conn.execute(
             "SELECT atttypmod FROM pg_attribute WHERE attrelid = %s::regclass AND attname = 'embedding'",
-            (t,),
+            (self.table,),
         ).fetchone()
         if existing is not None and existing[0] != self.dim:
             raise ValueError(
-                f"table {t!r} stores {existing[0]}-dimensional vectors but this store expects {self.dim}"
+                f"table {self.table!r} stores {existing[0]}-dimensional vectors "
+                f"but this store expects {self.dim}"
             )
         if index == "hnsw":
             self._conn.execute(
-                f"CREATE INDEX IF NOT EXISTS {t}_embedding_hnsw ON {t} USING hnsw (embedding vector_cosine_ops)"
+                sql.SQL("CREATE INDEX IF NOT EXISTS {idx} ON {t} USING hnsw (embedding vector_cosine_ops)").format(
+                    idx=sql.Identifier(f"{self.table}_embedding_hnsw"), t=t
+                )
             )
 
     # --- Store interface ----------------------------------------------------
     def __len__(self) -> int:
         row = self._conn.execute(
-            f"SELECT count(*) FROM {self.table} WHERE namespace = %s", (self.namespace,)
+            self._sql.SQL("SELECT count(*) FROM {t} WHERE namespace = %s").format(t=self._t),
+            (self.namespace,),
         ).fetchone()
         return int(row[0])
 
@@ -113,11 +129,13 @@ class PgVectorStore:
         # Re-ingesting a chunk id replaces it (the in-memory store would keep both copies).
         with self._conn.transaction(), self._conn.cursor() as cur:
             cur.executemany(
-                f"""INSERT INTO {self.table} (namespace, id, doc_id, text, metadata, embedding)
-                    VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector)
-                    ON CONFLICT (namespace, id) DO UPDATE SET
-                        doc_id = EXCLUDED.doc_id, text = EXCLUDED.text,
-                        metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding""",
+                self._sql.SQL(
+                    """INSERT INTO {t} (namespace, id, doc_id, text, metadata, embedding)
+                        VALUES (%s, %s, %s, %s, %s::jsonb, %s::vector)
+                        ON CONFLICT (namespace, id) DO UPDATE SET
+                            doc_id = EXCLUDED.doc_id, text = EXCLUDED.text,
+                            metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding"""
+                ).format(t=self._t),
                 rows,
             )
 
@@ -126,11 +144,13 @@ class PgVectorStore:
             return []
         literal = _vector_literal(query_vec)
         rows = self._conn.execute(
-            f"""SELECT id, doc_id, text, metadata, 1 - (embedding <=> %s::vector) AS score
-                FROM {self.table}
-                WHERE namespace = %s
-                ORDER BY embedding <=> %s::vector, seq
-                LIMIT %s""",
+            self._sql.SQL(
+                """SELECT id, doc_id, text, metadata, 1 - (embedding <=> %s::vector) AS score
+                    FROM {t}
+                    WHERE namespace = %s
+                    ORDER BY embedding <=> %s::vector, seq
+                    LIMIT %s"""
+            ).format(t=self._t),
             (literal, self.namespace, literal, k),
         ).fetchall()
         return [
@@ -139,7 +159,9 @@ class PgVectorStore:
 
     def chunks(self) -> list[Chunk]:
         rows = self._conn.execute(
-            f"SELECT id, doc_id, text, metadata FROM {self.table} WHERE namespace = %s ORDER BY seq",
+            self._sql.SQL("SELECT id, doc_id, text, metadata FROM {t} WHERE namespace = %s ORDER BY seq").format(
+                t=self._t
+            ),
             (self.namespace,),
         ).fetchall()
         return [Chunk(id=r[0], text=r[2], doc_id=r[1], metadata=r[3] or {}) for r in rows]
@@ -150,7 +172,9 @@ class PgVectorStore:
     # --- extras -------------------------------------------------------------
     def clear(self) -> int:
         """Delete every chunk in this namespace and return how many were removed."""
-        cur = self._conn.execute(f"DELETE FROM {self.table} WHERE namespace = %s", (self.namespace,))
+        cur = self._conn.execute(
+            self._sql.SQL("DELETE FROM {t} WHERE namespace = %s").format(t=self._t), (self.namespace,)
+        )
         return cur.rowcount
 
     def close(self) -> None:
