@@ -24,6 +24,13 @@ class Settings:
     rerank_pool_factor: int = int(os.getenv("LUMEN_RERANK_POOL", "4"))
     # "1" routes PDF/DOCX/PPTX/HTML through Docling (requires the [docling] extra).
     use_docling: bool = os.getenv("LUMEN_DOCLING", "") == "1"
+    # Vector store backend: "memory" (default, persisted to index_dir) or "pgvector"
+    # (requires the [pgvector] extra and LUMEN_PG_DSN).
+    store: str = os.getenv("LUMEN_STORE", "memory")
+    pg_dsn: str = os.getenv("LUMEN_PG_DSN", "")
+    pg_table: str = os.getenv("LUMEN_PG_TABLE", "lumen_chunks")
+    # Isolates document collections per user/team on a shared backend (pgvector).
+    namespace: str = os.getenv("LUMEN_NAMESPACE", "default")
 
     @property
     def offline(self) -> bool:

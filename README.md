@@ -173,6 +173,41 @@ print(engine.query("How much vacation do I get?").text)
 
 ---
 
+## 🗄️ Storage backends
+
+The engine talks to a small `Store` interface (`add`, `search`, `chunks`, `save`), so the
+vector index is swappable without touching retrieval or ingestion.
+
+| Backend | Select with | Persistence | Notes |
+|---|---|---|---|
+| in-memory (default) | `LUMEN_STORE=memory` | files in `LUMEN_INDEX_DIR` | exact cosine search, zero dependencies |
+| Postgres + pgvector | `LUMEN_STORE=pgvector` | the database | `pip install 'lumen-rag[pgvector]'`, needs `LUMEN_PG_DSN` |
+
+```bash
+docker compose up -d db                       # Postgres 16 with pgvector (dev credentials)
+pip install -e ".[pgvector]"
+export LUMEN_STORE=pgvector LUMEN_PG_DSN=postgresql://lumen:lumen@localhost:5432/lumen
+lumen ingest data/eval_v2/docs                # rows are committed as they are added
+lumen eval data/eval_v2/eval.jsonl            # same metrics as the in-memory store
+```
+
+- **Namespaces.** `LUMEN_NAMESPACE` (default `default`) scopes every read and write. Several
+  namespaces share one table and never see each other's chunks, so one deployment can serve
+  several users or teams. `PgVectorStore.clear()` deletes only the current namespace.
+- **Exact by default.** pgvector scans exactly, so results match the in-memory store (the test
+  suite checks the v2 metrics agree within 0.005). `index="hnsw"` adds an approximate index for
+  large collections; it can change results and interacts with the namespace filter.
+- **Re-ingesting a chunk id replaces it** in Postgres; the in-memory store would keep both copies.
+- **BM25 still runs in the app**: hybrid and BM25 modes load the namespace's chunks to build the
+  sparse index, which is fine for tens of thousands of chunks. Moving BM25 into Postgres full-text
+  search is the next step for larger collections.
+- **Qdrant and Pinecone are not implemented.** The interface is small enough that an adapter is
+  one file, but nothing beyond pgvector has been written or tested.
+- The database tests (`pytest -m pgvector`) need `LUMEN_TEST_PG_DSN`; CI runs them against a
+  `pgvector/pgvector:pg16` service container and fails if any are skipped.
+
+---
+
 ## 🧪 Testing
 
 ```bash
@@ -307,12 +342,13 @@ answerer treat the rates as an approximation. `diagnose_claims(..., aligner=fn)`
 - [x] **Streaming answers** — server-sent events on `POST /query/stream`
 - [x] **Eval regression guard** — `scripts/check_eval.py` in CI; build fails if recall drops
 - [x] **PR eval report** — sticky PR comment with metric deltas on the v2 eval set; fails on a drop over 0.01
-- [ ] **pgvector / Qdrant / Pinecone adapters** — swap the in-memory store for a production vector DB without touching engine callers
+- [x] **pgvector adapter** with namespaces behind a `Store` interface (Qdrant / Pinecone still open)
+- [ ] **Qdrant / Pinecone adapters** — swap the in-memory store for a production vector DB without touching engine callers
 - [x] **Cross-encoder reranker** — second-stage BGE reranking via fastembed (`LUMEN_RERANKER`)
 - [x] **Layout-aware ingestion** — Docling backend for PDF/DOCX/PPTX/HTML (`LUMEN_DOCLING=1`)
 - [x] **Answer-quality eval** — DeepEval faithfulness / relevancy metrics (`lumen eval-answers`)
 - [x] **Claim-level diagnostics** — `lumen eval-answers --claims` attributes wrong answers to retrieval vs generation, offline
-- [ ] **Multi-tenant namespaces** — isolate document collections per user/team with a namespace key
+- [x] **Multi-tenant namespaces** — `LUMEN_NAMESPACE` isolates collections per user/team (pgvector backend)
 - [ ] **Async FastAPI endpoints** — connection-pooled async DB and embedder calls for concurrency
 - [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall
 

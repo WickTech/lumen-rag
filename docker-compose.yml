@@ -1,0 +1,31 @@
+# Local Postgres with pgvector for the pgvector store.
+#
+#   docker compose up -d db
+#   export LUMEN_STORE=pgvector
+#   export LUMEN_PG_DSN=postgresql://lumen:lumen@localhost:5432/lumen
+#   pip install -e ".[pgvector]"
+#   lumen ingest data/eval_v2/docs && lumen eval data/eval_v2/eval.jsonl
+#
+# Run the database tests against it:
+#   LUMEN_TEST_PG_DSN=postgresql://lumen:lumen@localhost:5432/lumen pytest -m pgvector
+#
+# Development credentials only; do not expose this port or reuse the password.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: lumen
+      POSTGRES_PASSWORD: lumen
+      POSTGRES_DB: lumen
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - lumen_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumen -d lumen"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  lumen_pg:
