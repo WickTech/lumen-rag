@@ -55,6 +55,7 @@ python scripts/validate_eval_set.py            # consistency checks (ids, spans,
 python scripts/benchmark.py --set v2           # configurations x categories table
 lumen ingest data/eval_v2/docs
 lumen eval data/eval_v2/eval.jsonl --k 5       # one-off scorecard with per-category breakdown
+lumen eval-answers data/eval_v2/eval.jsonl --claims   # why answers go wrong: retrieval vs generation
 ```
 
 ## Baseline (offline hashing embedder, no reranker, k=5)
