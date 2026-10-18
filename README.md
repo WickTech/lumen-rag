@@ -60,6 +60,7 @@ lumen serve && open http://localhost:8000
 - **Cross-encoder reranking** — optional second stage (`LUMEN_RERANKER=BAAI/bge-reranker-base`, `pip install lumen-rag[rerank]`): any mode over-fetches `k × LUMEN_RERANK_POOL` candidates and a BGE cross-encoder (ONNX via fastembed, no torch) picks the final top-k. On the bundled eval set at k=3: MRR 0.974 → 1.000, nDCG 0.968 → 0.980.
 - **Layout-aware parsing** — optional Docling backend (`LUMEN_DOCLING=1`, `pip install lumen-rag[docling]`) for PDF/DOCX/PPTX/HTML: reading order, multi-column pages, and tables exported as Markdown.
 - **📊 Evaluation harness** — recall@k, precision@k, MRR, nDCG@k, hit-rate over a labelled question set.
+- **Claim-level diagnostics** — `lumen eval-answers --claims` labels every answer claim supported / distractor / unsupported and attributes wrong answers to retrieval or generation, offline.
 - **Answer-quality eval** — `lumen eval-answers data/eval.jsonl` judges generated answers with [DeepEval](https://github.com/confident-ai/deepeval) (faithfulness, answer relevancy, contextual relevancy; plus contextual precision/recall for cases with an `expected_answer`). Needs `OPENAI_API_KEY` and `pip install lumen-rag[answer-eval]`.
 - **Eval regression guard** — `scripts/check_eval.py` enforces minimum score thresholds in CI; the build fails if retrieval quality drops.
 - **Three interfaces** — Python API, Typer CLI, and a FastAPI server.
@@ -233,8 +234,55 @@ in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes 
 > row had in fact been measured in hybrid mode and the "vector-only" labels were
 > wrong. `evaluate()` now takes `mode=`, and the numbers above are the real ones.
 
----
+## 🔬 Claim-level diagnostics — where do wrong answers come from?
 
+Retrieval metrics say whether the right *documents* came back; answer judges say whether an
+answer *reads* well. Neither says why an answer is wrong. `lumen eval-answers --claims`
+splits every answer into claims, aligns each claim with the retrieved chunks, and attributes
+failures to the retriever or the generator. It needs no API key and no judge model.
+
+```bash
+lumen ingest data/eval_v2/docs
+lumen eval-answers data/eval_v2/eval.jsonl --claims --mode bm25 --out per_case.json
+```
+
+Per **claim**: `supported` (grounded in a retrieved chunk from a gold document), `distractor`
+(grounded in retrieved *non-gold* text: faithful, but the wrong evidence) or `unsupported`
+(not grounded in anything retrieved). Per **answerable question**: `ok`, `retrieval-miss`
+(answer wrong and a gold document was not retrieved) or `generation-error` (answer wrong
+although every gold document was retrieved). Per **unanswerable question**: `abstained` or
+`hallucinated`.
+
+Results on the [v2 set](data/eval_v2/README.md), offline extractive answerer, k=5:
+
+| Retrieval mode | answer ok | retrieval-miss | generation-error | claim precision | faithfulness |
+|---|---|---|---|---|---|
+| vector-only | 0.73 | 0.23 | 0.05 | 0.33 | 1.00 |
+| BM25 only | **0.88** | 0.09 | 0.03 | 0.45 | 1.00 |
+| hybrid (BM25 + RRF) | 0.78 | 0.16 | 0.06 | 0.37 | 1.00 |
+
+Reading it:
+
+- **Most wrong answers are retrieval failures.** Under vector-only search 23% of questions fail
+  because the gold document was not retrieved, against 5% where it was retrieved but the answer
+  still missed it. Better retrieval (BM25) is what lifts answer accuracy from 0.73 to 0.88.
+- **A `generation-error` here means the answerer ignored evidence it had.** The offline answerer
+  pastes only the top 2 chunks, so a gold document retrieved at rank 3 to 5 still produces a wrong
+  answer.
+- **`unsupported` is 0 and faithfulness is 1.00 by construction**: an extractive answerer only
+  repeats retrieved text. These claim rates become informative with a generative answerer
+  (`OPENAI_API_KEY`), where fabricated claims can appear.
+- **Claim precision is mostly answer noise**: the share of answer sentences that come from the gold
+  document rather than from the other retrieved chunks it was stitched together with.
+- **The offline answerer never declines**, so 0 of 23 unanswerable questions are `abstained`. An
+  abstain-below-a-score rule is an obvious next step, and this report will measure it.
+
+Alignment is a deterministic lexical overlap (share of a claim's content words found in a chunk,
+default threshold `--tau 0.6`). It cannot see paraphrase or negation, so with a generative
+answerer treat the rates as an approximation. `diagnose_claims(..., aligner=fn)` accepts any
+`(claim, chunk_text) -> score` function, so an NLI model or an LLM judge can replace it.
+
+---
 
 ## 🗺️ Roadmap
 
@@ -246,6 +294,7 @@ in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes 
 - [x] **Cross-encoder reranker** — second-stage BGE reranking via fastembed (`LUMEN_RERANKER`)
 - [x] **Layout-aware ingestion** — Docling backend for PDF/DOCX/PPTX/HTML (`LUMEN_DOCLING=1`)
 - [x] **Answer-quality eval** — DeepEval faithfulness / relevancy metrics (`lumen eval-answers`)
+- [x] **Claim-level diagnostics** — `lumen eval-answers --claims` attributes wrong answers to retrieval vs generation, offline
 - [ ] **Multi-tenant namespaces** — isolate document collections per user/team with a namespace key
 - [ ] **Async FastAPI endpoints** — connection-pooled async DB and embedder calls for concurrency
 - [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall
