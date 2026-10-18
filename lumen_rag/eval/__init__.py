@@ -4,9 +4,9 @@ from .metrics import hit_rate, mrr, ndcg_at_k, precision_at_k, recall_at_k
 
 __all__ = [
     "ClaimReport",
-    "diagnose_claims",
     "EvalCase",
     "EvalReport",
+    "diagnose_claims",
     "evaluate",
     "hit_rate",
     "mrr",

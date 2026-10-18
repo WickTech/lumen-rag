@@ -55,9 +55,14 @@ _ABSTAIN_RE = re.compile(
 _OFFLINE_PREFIX = "(offline extractive answer)"
 
 _STOPWORDS = frozenset(
-    """a an and are as at be been but by can could did do does for from had has have how i if in into is it its
-    me more most must my no not of on or our out over per so such than that the their them then there these they
-    this those to up us was we were what when where which while who whom why will with would you your""".split()
+    {
+        "a", "an", "and", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do",
+        "does", "for", "from", "had", "has", "have", "how", "i", "if", "in", "into", "is", "it", "its",
+        "me", "more", "most", "must", "my", "no", "not", "of", "on", "or", "our", "out", "over", "per",
+        "so", "such", "than", "that", "the", "their", "them", "then", "there", "these", "they", "this",
+        "those", "to", "up", "us", "was", "we", "were", "what", "when", "where", "which", "while", "who",
+        "whom", "why", "will", "with", "would", "you", "your",
+    }
 )
 
 
@@ -142,8 +147,10 @@ class ClaimReport:
     def pretty(self) -> str:
         d = self.as_dict()
         lines = [
-            f"  Claim diagnostics — {d['n_cases']} answerable questions, {d['n_claims']} claims "
-            f"(k={d['k']}, mode={d['mode']}, support ≥ {d['tau']})",
+            (
+                f"  Claim diagnostics — {d['n_cases']} answerable questions, {d['n_claims']} claims "
+                f"(k={d['k']}, mode={d['mode']}, support ≥ {d['tau']})"
+            ),
             "  " + "-" * 60,
             "  Claims (share of all answer claims)",
             f"    supported      {d['claim_precision']:.4f}   grounded in retrieved gold evidence",

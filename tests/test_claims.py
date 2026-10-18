@@ -171,7 +171,7 @@ def test_cli_claims_flag_runs_offline(tmp_path, monkeypatch, v2_retriever):
     )
     assert result.exit_code == 0, result.output
     assert "Claim diagnostics" in result.output
-    summary = json.loads([ln for ln in result.output.splitlines() if ln.startswith("{")][0])
+    summary = json.loads(next(ln for ln in result.output.splitlines() if ln.startswith("{")))
     assert summary["mode"] == "bm25" and summary["n_cases"] == 153
     rows = json.loads(out.read_text())
     assert len(rows) == 176 and {"question", "outcome", "claims"} <= set(rows[0])
