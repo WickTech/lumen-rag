@@ -23,50 +23,74 @@ is the measurement behind the numbers in the README.
 
 ## Results
 
+> **Correction (2026-10-18).** The first version of this case study reported naive
+> MRR 0.93 and hybrid equal to chunked-vector. `evaluate()` ignored the retrieval
+> mode, so all three rows were actually hybrid-mode runs. The harness now applies
+> `mode=`, and the tables below are re-measured. The v1 set is also tiny and
+> saturated (7 documents, k=5), so the conclusions that matter come from the v2 set.
+
+### v1 smoke test (7 docs, 19 questions)
+
 | Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
 |---|---|---|---|---|---|
-| naive — 1 chunk per doc, vector-only | 0.97 | 0.20 | 0.93 | 0.94 | 1.00 |
-| + sentence-aware chunking, vector-only | 0.97 | 0.20 | **0.97** | **0.97** | 1.00 |
-| + hybrid (BM25 + Reciprocal Rank Fusion) | 0.97 | 0.20 | **0.97** | **0.97** | 1.00 |
+| naive, 1 chunk per doc, vector-only | 1.00 | 0.21 | 0.96 | 0.98 | 1.00 |
+| + sentence-aware chunking, vector-only | 0.97 | 0.20 | **1.00** | 0.98 | 1.00 |
+| BM25 only, sentence chunking | 0.97 | 0.20 | 0.96 | 0.96 | 1.00 |
+| hybrid (BM25 + RRF), sentence chunking | 0.97 | 0.20 | 0.97 | 0.97 | 1.00 |
+
+With 7 candidate documents and k=5, recall cannot discriminate: any config
+returns most of the corpus. Chunking raises MRR from 0.96 to 1.00 (the right
+document is always first) while recall dips from 1.00 to 0.97 (one question loses
+its second relevant chunk's parent from the top 5). Treat this set as a smoke test.
+
+### v2 (120 docs, 176 questions, `data/eval_v2`)
+
+| Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
+|---|---|---|---|---|---|
+| vector-only | 0.74 | 0.17 | 0.69 | 0.69 | 0.78 |
+| BM25 only | 0.90 | 0.21 | 0.88 | 0.87 | 0.94 |
+| hybrid (BM25 + RRF) | 0.82 | 0.19 | 0.73 | 0.74 | 0.86 |
+
+| MRR by category | direct | disambiguation | multihop | paraphrase |
+|---|---|---|---|---|
+| vector-only | 0.84 | 0.77 | 0.67 | 0.54 |
+| BM25 only | 0.98 | 0.89 | 0.86 | 0.80 |
+| hybrid (BM25 + RRF) | 0.84 | 0.78 | 0.76 | 0.59 |
 
 ## Reading the numbers honestly
 
-**Recall and hit-rate are already saturated** at 0.97/1.00 in the naive
-config — with only 7 candidate documents and distinct enough vocabulary
-per topic, the correct document almost always lands somewhere in the top 5
-regardless of technique. Publishing only recall would (falsely) suggest
-chunking doesn't matter here. It does — just not on that metric.
+**The v2 set separates configurations; v1 does not.** On v2 the best and worst
+configurations differ by 0.19 MRR, and paraphrased and multi-hop questions are
+clearly harder than direct ones, which is what a retrieval benchmark should show.
 
-**MRR and nDCG@5 are where the effect shows up.** Both measure *where* the
-correct document ranks, not just whether it's present. Moving from naive to
-chunked lifts MRR from 0.93 to 0.97 — a small absolute jump that maps to a
-concrete failure mode disappearing: when a whole 300–450 word multi-topic
-document is embedded as a single vector, the sections irrelevant to the
-query dilute the average, and the correct document occasionally ranks 2nd
-or 3rd behind a partial-vocabulary-match decoy instead of 1st. Sentence-aware
-chunking (120-word windows, 20-word overlap) embeds each section on its own,
-so the answer-bearing chunk competes on its own signal instead of being
-outvoted by the rest of the document.
+**Hybrid sits between its inputs because the dense half is weak.** The offline
+`HashingEmbedder` is a bag-of-words feature hasher, so its ranking is a noisy
+version of what BM25 already computes. Reciprocal Rank Fusion then mixes a good
+ranking with a worse one and the result is worse than BM25 alone. This is a
+statement about this offline embedder; whether a real semantic embedder
+(`OPENAI_API_KEY`, `text-embedding-3-small`) changes the order has not been
+measured here and should be the next experiment (see the roadmap).
 
-**Hybrid ties chunked-vector, not because RRF doesn't work, but because the
-offline `HashingEmbedder` is itself a bag-of-words signal** — term-frequency
-counts, L2-normalised. That's structurally close to what BM25 computes, so
-fusing the two rankers mostly agrees with itself. Hybrid's actual value
-proposition — catching exact rare-term or numeric matches that a *semantic*
-embedding model under-weights in favor of topical similarity — needs a real
-semantic embedder (`OPENAI_API_KEY` set, `text-embedding-3-small`) and a
-larger, noisier corpus to demonstrate honestly. That's flagged as a follow-up
-rather than asserted with numbers we didn't measure.
+**Chunking is not exercised by v2.** Its documents are 60 to 110 words, shorter
+than the 120-word chunk window, so chunked and unchunked runs are identical. The
+chunking effect needs longer documents.
+
+**The cross-encoder reranker is not in these tables.** It needs a model download,
+so the benchmark keeps it off to stay reproducible offline.
 
 ## Takeaways for anyone building on Lumen
 
 1. **Don't just report recall/hit-rate.** They saturate fast on small
-   corpora and hide ranking-quality regressions. MRR/nDCG catch what recall
-   misses.
-2. **Chunking's benefit scales with document length and topic density**, not
-   corpus size. A corpus of short, single-topic documents won't show this
-   effect — you need documents where the answer is a minority of the content.
-3. **Hybrid retrieval's payoff is embedder-dependent.** With a lexical/hash
-   embedder it's close to redundant with vector search; with a real semantic
-   embedder it complements it. Re-run `scripts/benchmark.py` with
-   `OPENAI_API_KEY` set to see the difference on your own corpus.
+   corpora (v1: 7 documents, k=5) and hide ranking differences. Check that your
+   eval set can actually tell two configurations apart before trusting it; v2
+   exists for that reason.
+2. **Check that your benchmark applies the settings it claims to.** The first
+   version of this study labelled rows "vector-only" while running hybrid. A test
+   (`test_evaluate_applies_the_retrieval_mode`) now guards it.
+3. **Chunking's benefit scales with document length and topic density**, not
+   corpus size. A corpus of short, single-topic documents (like v2) won't show
+   this effect; you need documents where the answer is a minority of the content.
+4. **Hybrid retrieval's payoff is embedder-dependent.** With the offline hashing
+   embedder, hybrid scored below BM25 alone on v2. Re-run
+   `python scripts/benchmark.py --set v2` with `OPENAI_API_KEY` set to see the
+   difference with a real embedder on your own corpus.

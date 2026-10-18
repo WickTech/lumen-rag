@@ -1,36 +1,56 @@
 {
+  "set": "v1",
   "k": 5,
   "n_cases": 19,
+  "n_unanswerable": 0,
   "results": [
     {
       "config": "naive (1 chunk/doc, vector-only)",
+      "mode": "vector",
       "k": 5,
       "n_cases": 19,
-      "recall@k": 0.9737,
-      "precision@k": 0.2,
-      "mrr": 0.9342,
-      "ndcg@k": 0.9418,
-      "hit_rate": 1.0
+      "recall@k": 1.0,
+      "precision@k": 0.2105,
+      "mrr": 0.9649,
+      "ndcg@k": 0.9774,
+      "hit_rate": 1.0,
+      "by_category": {}
     },
     {
       "config": "+ sentence chunking (vector-only)",
+      "mode": "vector",
       "k": 5,
       "n_cases": 19,
       "recall@k": 0.9737,
       "precision@k": 0.2,
-      "mrr": 0.9737,
-      "ndcg@k": 0.9677,
-      "hit_rate": 1.0
+      "mrr": 1.0,
+      "ndcg@k": 0.9796,
+      "hit_rate": 1.0,
+      "by_category": {}
     },
     {
-      "config": "+ hybrid (BM25 + RRF)",
+      "config": "BM25 only (sentence chunking)",
+      "mode": "bm25",
+      "k": 5,
+      "n_cases": 19,
+      "recall@k": 0.9737,
+      "precision@k": 0.2,
+      "mrr": 0.9605,
+      "ndcg@k": 0.9613,
+      "hit_rate": 1.0,
+      "by_category": {}
+    },
+    {
+      "config": "hybrid (BM25 + RRF, sentence chunking)",
+      "mode": "hybrid",
       "k": 5,
       "n_cases": 19,
       "recall@k": 0.9737,
       "precision@k": 0.2,
       "mrr": 0.9737,
       "ndcg@k": 0.9677,
-      "hit_rate": 1.0
+      "hit_rate": 1.0,
+      "by_category": {}
     }
   ]
 }
