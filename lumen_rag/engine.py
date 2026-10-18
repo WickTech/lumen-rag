@@ -10,13 +10,15 @@ from .embeddings import get_embedder
 from .ingestion import ingest_documents
 from .llm import Answer, answer, answer_async
 from .retrieval import RetrievalMode, Retriever
-from .store import VectorStore
+from .store import Store, VectorStore, get_store
 
 
 class RagEngine:
-    def __init__(self, store: VectorStore | None = None) -> None:
+    def __init__(self, store: Store | None = None) -> None:
         self.embedder = get_embedder()
-        self.store = store or VectorStore(dim=self.embedder.dim)
+        # Explicit None check: an empty store is falsy (``__len__`` == 0), so ``store or ...``
+        # would silently replace a freshly created pgvector store with an in-memory one.
+        self.store = store if store is not None else get_store(self.embedder.dim)
         self.retriever = Retriever(self.store, self.embedder)
 
     def add_documents(self, documents: list[dict], **kwargs) -> int:
@@ -59,5 +61,8 @@ class RagEngine:
 
     @classmethod
     def load(cls, directory: str | Path | None = None) -> RagEngine:
+        if settings.store.lower() != "memory":
+            # Database-backed stores persist themselves: reconnect instead of reading files.
+            return cls()
         store = VectorStore.load(directory or settings.index_dir)
         return cls(store=store)

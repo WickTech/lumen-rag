@@ -28,6 +28,13 @@ class Settings:
     tracing: str = os.getenv("LUMEN_TRACING", "")
     # "1" also records question and answer text on spans; off by default (lengths only).
     trace_content: bool = os.getenv("LUMEN_TRACE_CONTENT", "") == "1"
+    # Vector store backend: "memory" (default, persisted to index_dir) or "pgvector"
+    # (requires the [pgvector] extra and LUMEN_PG_DSN).
+    store: str = os.getenv("LUMEN_STORE", "memory")
+    pg_dsn: str = os.getenv("LUMEN_PG_DSN", "")
+    pg_table: str = os.getenv("LUMEN_PG_TABLE", "lumen_chunks")
+    # Isolates document collections per user/team on a shared backend (pgvector).
+    namespace: str = os.getenv("LUMEN_NAMESPACE", "default")
 
     @property
     def offline(self) -> bool:

@@ -21,7 +21,7 @@ from typing import Literal
 from .. import tracing
 from ..config import settings
 from ..embeddings import Embedder, get_embedder
-from ..store import ScoredChunk, VectorStore
+from ..store import ScoredChunk, Store
 from .bm25 import BM25Index, reciprocal_rank_fusion
 from .rerank import Reranker, get_reranker
 
@@ -43,7 +43,7 @@ def _lexical_overlap(query: str, text: str) -> float:
 class Retriever:
     def __init__(
         self,
-        store: VectorStore,
+        store: Store,
         embedder: Embedder | None = None,
         reranker: Reranker | None | object = _FROM_SETTINGS,
     ) -> None:
@@ -57,8 +57,8 @@ class Retriever:
 
     def _get_bm25(self) -> BM25Index:
         """Build (or return cached) BM25 index from the current store chunks."""
-        if self._bm25 is None or len(self._bm25.chunks) != len(self.store._chunks):
-            self._bm25 = BM25Index.build(self.store._chunks)
+        if self._bm25 is None or len(self._bm25.chunks) != len(self.store):
+            self._bm25 = BM25Index.build(self.store.chunks())
         return self._bm25
 
     def retrieve(
