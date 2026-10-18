@@ -1,6 +1,7 @@
 """FastAPI surface for the RAG engine: ingest, query, stream, stats, health."""
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 from collections.abc import AsyncGenerator
@@ -13,12 +14,13 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .. import tracing
 from ..config import settings
 from ..engine import RagEngine
 from ..eval import evaluate
 from ..eval.harness import load_cases
 from ..ingestion.loaders import _LOADERS, load_file
-from ..llm import answer_stream
+from ..llm import answer_stream_async
 from ..retrieval import RetrievalMode, Retriever
 from .ratelimit import enforce
 
@@ -32,6 +34,7 @@ engine: RagEngine = RagEngine()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global engine
+    tracing.setup_from_env()  # no-op unless LUMEN_TRACING is set
     index = Path(settings.index_dir)
     if (index / "chunks.json").exists():
         engine = RagEngine.load(index)
@@ -103,12 +106,33 @@ def ingest(req: IngestRequest, request: Request) -> dict:
 
 
 @app.post("/query")
-def query(req: QueryRequest, request: Request) -> dict:
+async def query(req: QueryRequest, request: Request) -> dict:
     enforce(request, "query", limit=30, window_s=60)
     if len(engine.store) == 0:
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
-    result = engine.query(req.question, k=req.k, mode=req.mode)
+    result = await engine.aquery(req.question, k=req.k, mode=req.mode)
     return {"answer": result.text, "citations": result.citations}
+
+
+def _load_upload(data: bytes, filename: str, suffix: str) -> dict:
+    """Parse one uploaded file into a document (blocking)."""
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
+        tmp.write(data)
+        tmp.flush()
+        try:
+            doc = load_file(tmp.name)
+        except ImportError as e:  # optional loader extra not installed
+            raise HTTPException(status_code=400, detail=str(e)) from e
+    doc["id"] = Path(filename).stem
+    doc["metadata"]["source"] = filename
+    return doc
+
+
+def _index_documents(eng: RagEngine, docs: list[dict], chunk_size: int, overlap: int) -> int:
+    """Embed, store and persist documents (blocking)."""
+    total = eng.add_documents(docs, chunk_size=chunk_size, overlap=overlap)
+    eng.save()
+    return total
 
 
 @app.post("/ingest/upload")
@@ -127,18 +151,9 @@ async def ingest_upload(
                 status_code=413,
                 detail=f"{f.filename} exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB upload limit",
             )
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
-            tmp.write(data)
-            tmp.flush()
-            try:
-                doc = load_file(tmp.name)
-            except ImportError as e:  # optional loader extra not installed
-                raise HTTPException(status_code=400, detail=str(e)) from e
-            doc["id"] = Path(f.filename).stem
-            doc["metadata"]["source"] = f.filename
-            docs.append(doc)
-    total = engine.add_documents(docs, chunk_size=chunk_size, overlap=overlap)
-    engine.save()
+        # Parsing (PDF/DOCX can be heavy) and indexing (embedding calls) block: run them off the loop.
+        docs.append(await asyncio.to_thread(_load_upload, data, f.filename or "", suffix))
+    total = await asyncio.to_thread(_index_documents, engine, docs, chunk_size, overlap)
     return {"files_indexed": len(docs), "chunks_indexed": total}
 
 
@@ -209,10 +224,11 @@ async def query_stream(req: QueryRequest, request: Request) -> StreamingResponse
     if len(engine.store) == 0:
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
 
-    chunks = engine.retriever.retrieve(req.question, k=req.k, mode=req.mode)
+    # Retrieval can be CPU-bound or a network round trip: keep it off the event loop.
+    chunks = await asyncio.to_thread(engine.retriever.retrieve, req.question, k=req.k, mode=req.mode)
 
     async def _sse() -> AsyncGenerator[str, None]:
-        for token, citations in answer_stream(req.question, chunks):
+        async for token, citations in answer_stream_async(req.question, chunks):
             if citations is not None:
                 payload = json.dumps({"done": True, "citations": citations})
             else:
