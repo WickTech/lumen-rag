@@ -250,6 +250,62 @@ in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes 
 > row had in fact been measured in hybrid mode and the "vector-only" labels were
 > wrong. `evaluate()` now takes `mode=`, and the numbers above are the real ones.
 
+## ⚡ Async API and tracing
+
+**The API no longer blocks its event loop.** `/query` and `/query/stream` await the model on a shared,
+connection-pooled async client, and the blocking parts (retrieval, which can be CPU work or a database /
+embedding-API round trip; upload parsing; indexing) run in worker threads. Before this, `/query/stream`
+iterated a *synchronous* SDK stream inside an `async def`, so with an API key one slow model call froze every
+other request, `/health` included, and `answer()` built a new OpenAI client (and TLS handshake) per request.
+
+`python scripts/loadtest.py` measures it against the real app with a **simulated** 100 ms model and offline
+retrieval (so it shows how the server copes while waiting, not how fast any real model is):
+
+| Variant | requests/s | p50 latency | p95 latency | loop lag max |
+|---|---|---|---|---|
+| non-blocking model call | 153.5 | 119 ms | 126 ms | 28 ms |
+| blocking model call in the loop | 9.8 | 1125 ms | 2026 ms | 2033 ms |
+
+60 requests, 20 in flight, one run on a laptop; treat the ratio as indicative. "Loop lag" is the longest
+time a 10 ms heartbeat task could not run: it is what a blocking call costs every other client.
+
+### Tracing (OpenTelemetry, optional)
+
+```bash
+pip install 'lumen-rag[tracing]'
+LUMEN_TRACING=console lumen serve                      # print spans to stdout
+LUMEN_TRACING=otlp OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 lumen serve
+```
+
+`otlp` speaks OTLP/HTTP, which Langfuse, Arize Phoenix, Jaeger and Grafana Tempo accept; point it at yours with the
+standard `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_EXPORTER_OTLP_HEADERS` / `OTEL_SERVICE_NAME` variables. If your
+application already installs a global OpenTelemetry provider, the spans appear without setting `LUMEN_TRACING`.
+Without the packages or a provider, tracing costs a couple of function calls and records nothing.
+
+| Span | Attributes |
+|---|---|
+| `lumen.query` | `lumen.mode`, `lumen.k`, `lumen.question.chars`, `lumen.chunks` |
+| `lumen.retrieve` (child) | `lumen.mode`, `lumen.k`, `lumen.reranker`, `lumen.store`, `lumen.results` |
+| `lumen.answer` (child) | `lumen.offline`, `lumen.context_chunks`, `lumen.answer.chars`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` |
+
+A real run (`LUMEN_TRACING=console`, offline, BM25):
+
+```
+lumen.retrieve  parent=lumen.query  {"lumen.mode": "bm25", "lumen.k": 1, "lumen.reranker": false, "lumen.store": "VectorStore", "lumen.results": 1}
+lumen.answer    parent=lumen.query  {"lumen.offline": true, "lumen.context_chunks": 1, "lumen.answer.chars": 91}
+lumen.query     (root)              {"lumen.k": 1, "lumen.mode": "bm25", "lumen.question.chars": 29, "lumen.chunks": 1}
+```
+
+**Privacy:** only lengths are recorded. Question and answer text appear on spans only with `LUMEN_TRACE_CONTENT=1`,
+because other people's documents flow through this engine and you may not want them in your trace backend.
+
+What is and is not verified: the span tree, attributes, error recording, streaming spans (including a client that
+disconnects mid-stream) and the OTLP wire path (spans posted as protobuf to `/v1/traces` on a local stub collector)
+are covered by tests. It has **not** been run against a hosted Langfuse or Phoenix instance, and token usage is only
+recorded for non-streaming answers.
+
+---
+
 ## 🔬 Claim-level diagnostics — where do wrong answers come from?
 
 Retrieval metrics say whether the right *documents* came back; answer judges say whether an
@@ -313,7 +369,7 @@ answerer treat the rates as an approximation. `diagnose_claims(..., aligner=fn)`
 - [x] **Answer-quality eval** — DeepEval faithfulness / relevancy metrics (`lumen eval-answers`)
 - [x] **Claim-level diagnostics** — `lumen eval-answers --claims` attributes wrong answers to retrieval vs generation, offline
 - [ ] **Multi-tenant namespaces** — isolate document collections per user/team with a namespace key
-- [ ] **Async FastAPI endpoints** — connection-pooled async DB and embedder calls for concurrency
+- [x] **Async FastAPI endpoints** — non-blocking model calls on a pooled async client, blocking work in worker threads (async DB and embedder clients are still open)
 - [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall
 
 ---
