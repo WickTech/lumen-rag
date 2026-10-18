@@ -60,7 +60,7 @@ jobs:
         env:
           LUMEN_TEST_PG_DSN: postgresql://lumen:lumen@localhost:5432/lumen
         run: |
-          pytest -m pgvector -q -rs | tee "$RUNNER_TEMP/pgvector.txt"
+          pytest tests/test_pgvector_store.py -m pgvector -q -rs | tee "$RUNNER_TEMP/pgvector.txt"
           if grep -q SKIPPED "$RUNNER_TEMP/pgvector.txt"; then
             echo "pgvector tests were skipped, so nothing was verified"
             exit 1
