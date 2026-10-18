@@ -10,8 +10,11 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Protocol
 
 import numpy as np
+
+from .config import settings
 
 
 @dataclass
@@ -26,6 +29,31 @@ class Chunk:
 class ScoredChunk:
     chunk: Chunk
     score: float
+
+
+class Store(Protocol):
+    """What the engine, retriever and ingestion pipeline need from a vector store.
+
+    ``VectorStore`` (in-memory, exact cosine) and ``PgVectorStore`` (Postgres +
+    pgvector) both implement it. Scores are cosine similarities in [-1, 1] for
+    L2-normalised vectors, higher is better, so retrieval code is backend-agnostic.
+    """
+
+    dim: int
+
+    def __len__(self) -> int: ...
+
+    def add(self, chunks: list[Chunk], vectors: np.ndarray) -> None:
+        """Append chunks with their (n, dim) vectors."""
+
+    def search(self, query_vec: np.ndarray, k: int = 5) -> list[ScoredChunk]:
+        """Exact top-k by cosine similarity, best first."""
+
+    def chunks(self) -> list[Chunk]:
+        """Every stored chunk in insertion order (the sparse BM25 index is built from these)."""
+
+    def save(self, directory: str | Path) -> None:
+        """Persist to ``directory``. A no-op for backends that persist themselves."""
 
 
 class VectorStore:
@@ -44,6 +72,9 @@ class VectorStore:
             raise ValueError(f"expected dim {self.dim}, got {vectors.shape[1]}")
         self._vectors = np.vstack([self._vectors, vectors.astype(np.float32)])
         self._chunks.extend(chunks)
+
+    def chunks(self) -> list[Chunk]:
+        return self._chunks
 
     def search(self, query_vec: np.ndarray, k: int = 5) -> list[ScoredChunk]:
         if len(self._chunks) == 0:
@@ -72,3 +103,19 @@ class VectorStore:
         store._vectors = vectors.astype(np.float32)
         store._chunks = [Chunk(**c) for c in json.loads((d / "chunks.json").read_text())]
         return store
+
+
+def get_store(dim: int) -> Store:
+    """Build the store selected by ``LUMEN_STORE`` (``memory`` or ``pgvector``)."""
+    kind = settings.store.lower()
+    if kind == "memory":
+        return VectorStore(dim=dim)
+    if kind == "pgvector":
+        from .pgvector_store import PgVectorStore
+
+        if not settings.pg_dsn:
+            raise RuntimeError("LUMEN_STORE=pgvector needs LUMEN_PG_DSN (a postgresql:// connection string)")
+        return PgVectorStore(
+            settings.pg_dsn, dim=dim, namespace=settings.namespace, table=settings.pg_table
+        )
+    raise ValueError(f"unknown LUMEN_STORE {settings.store!r}; use 'memory' or 'pgvector'")

@@ -5,18 +5,18 @@ import uuid
 from pathlib import Path
 
 from ..embeddings import Embedder, get_embedder
-from ..store import Chunk, VectorStore
+from ..store import Chunk, Store, VectorStore
 from .chunker import chunk_text
 from .loaders import load_file
 
 
 def ingest_documents(
     documents: list[dict],
-    store: VectorStore | None = None,
+    store: Store | None = None,
     embedder: Embedder | None = None,
     chunk_size: int = 120,
     overlap: int = 20,
-) -> VectorStore:
+) -> Store:
     """Ingest a list of ``{"id", "text", "metadata"?}`` dicts into a store."""
     embedder = embedder or get_embedder()
     # NB: use an explicit None check — an empty VectorStore is falsy (__len__ == 0),
@@ -43,7 +43,7 @@ def ingest_documents(
     return store
 
 
-def ingest_paths(paths: list[str | Path], **kwargs) -> VectorStore:
+def ingest_paths(paths: list[str | Path], **kwargs) -> Store:
     """Ingest files from disk. Supports .txt, .md, .pdf, .docx, .html, .htm."""
     docs = [load_file(p) for p in paths]
     return ingest_documents(docs, **kwargs)
