@@ -47,9 +47,8 @@ can't answer are refused with their retrieval confidence shown (threshold 0.66,
 see [Abstention](#-abstention--refusing-what-the-documents-dont-say)). Answers are
 extractive, not LLM-generated, since the Space has no model key.
 
-The Space runs the same FastAPI app as `lumen serve`: the UI above at `/`, the HTTP
-API with interactive docs at [`/docs`](https://wicktech-lumen-rag.hf.space/docs), and a
-Gradio version of the UI at `/gradio`.
+The Space runs the same FastAPI app as `lumen serve`: the UI above at `/` and the
+HTTP API with interactive docs at [`/docs`](https://wicktech-lumen-rag.hf.space/docs).
 
 Run it locally instead:
 

@@ -1,11 +1,14 @@
 """Entry point for the Lumen RAG Space.
 
-The Space serves the same thing as `lumen serve`: the FastAPI app with its demo
-UI at / (the one in the README GIF) and the HTTP API (/docs). Free accounts can
-only host Gradio Spaces on ZeroGPU, and ZeroGPU needs a @spaces.GPU function, so
-a Gradio front-end is mounted at /gradio. Both share one engine and one index.
+The Space serves the same thing as `lumen serve`: the demo UI at / (the one in
+the README GIF) and the HTTP API with its docs at /docs.
 
-Run `python app.py` (as the Space does) for the combined server.
+Free accounts can only host Gradio Spaces on ZeroGPU, and ZeroGPU registers its
+@spaces.GPU functions inside Gradio's own launch(), not under a hand-run server
+(that fails with "No @spaces.GPU function detected during startup"). So the
+Gradio app below is still what launches, but the FastAPI routes are handed to
+it first and take precedence, including /. The Gradio blocks stay as the
+backend ZeroGPU needs, and use the same engine and index as the API.
 """
 from __future__ import annotations
 
@@ -192,7 +195,10 @@ with gr.Blocks(title="Lumen RAG") as demo:
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    server = gr.mount_gradio_app(_api.app, demo, path="/gradio")
-    uvicorn.run(server, host="0.0.0.0", port=int(os.getenv("GRADIO_SERVER_PORT", "7860")))
+    demo.launch(
+        # Routes passed to the FastAPI constructor are matched before the ones
+        # Gradio adds, so / redirects to the demo UI instead of Gradio's page.
+        app_kwargs={"routes": list(_api.app.routes), "lifespan": _api.lifespan},
+        # SSR puts a Node server in front that owns /; keep Python serving it.
+        ssr_mode=False,
+    )
