@@ -144,9 +144,12 @@ $('askBtn').onclick = async () => {
       body: JSON.stringify({ question, mode: $('mode').value, k: 5 })
     });
     $('answer').textContent = r.answer;
-    if (r.confidence !== null && r.confidence !== undefined) {
-      $('confidence').textContent = `Retrieval confidence ${Number(r.confidence).toFixed(3)}` +
-        (r.abstained ? ' — below the threshold, so it refused instead of guessing.' : ' — answered.');
+    const parts = [];
+    if (r.confidence !== null && r.confidence !== undefined) parts.push(`retrieval confidence ${Number(r.confidence).toFixed(3)}`);
+    if (r.answerability !== null && r.answerability !== undefined) parts.push(`reader answerability ${Number(r.answerability).toFixed(1)}`);
+    if (parts.length) {
+      $('confidence').textContent = parts.join(' · ') +
+        (r.abstained ? ' — below threshold, so it refused instead of guessing.' : ' — answered.');
     }
     const citationsEl = $('citations');
     citationsEl.innerHTML = '';
@@ -169,6 +172,7 @@ api('/health').then(h => {
   const names = { HashingEmbedder: 'offline hashing embedder', FastEmbedEmbedder: 'local embedding model', OpenAIEmbedder: 'OpenAI embeddings' };
   let info = 'Running on the ' + (names[h.embedder] || h.embedder) + (h.embedding_model ? ` (${h.embedding_model})` : '');
   info += h.abstain_threshold !== null ? ` · refuses below retrieval confidence ${h.abstain_threshold}` : ' · abstention off';
+  if (h.reader) info += ` · reader ${h.reader.split('/').pop()} checks each answer (threshold ${h.reader_threshold})`;
   $('engineInfo').textContent = info;
   if (h.embedder !== 'HashingEmbedder') $('mode').value = 'vector';
 }).catch(() => {});
