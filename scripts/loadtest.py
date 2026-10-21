@@ -33,24 +33,24 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-import httpx  # noqa: E402
+import httpx
 
-from lumen_rag.engine import RagEngine  # noqa: E402
-from lumen_rag.ingestion.loaders import load_file  # noqa: E402
-from lumen_rag.llm import Answer  # noqa: E402
+from lumen_rag.engine import RagEngine
+from lumen_rag.ingestion.loaders import load_file
+from lumen_rag.llm import Answer
 
 api = importlib.import_module("lumen_rag.api.app")
 
 
 def percentile(values: list[float], pct: float) -> float:
     ordered = sorted(values)
-    return ordered[min(len(ordered) - 1, int(round(pct / 100 * (len(ordered) - 1))))]
+    return ordered[min(len(ordered) - 1, round(pct / 100 * (len(ordered) - 1)))]
 
 
 async def run_variant(name: str, blocking: bool, latency: float, requests: int, concurrency: int) -> dict:
     async def simulated_model(question, chunks):
         if blocking:
-            time.sleep(latency)  # blocks the whole event loop
+            time.sleep(latency)  # noqa: ASYNC251 - deliberately blocks the loop to show the contrast
         else:
             await asyncio.sleep(latency)
         return Answer("simulated answer", [])

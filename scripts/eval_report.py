@@ -53,6 +53,7 @@ def run_benchmark(root: Path, k: int = K) -> dict:
     os.environ.pop("LUMEN_RERANKER", None)
     sys.path.insert(0, str(root))
 
+    import lumen_rag
     from lumen_rag.embeddings import get_embedder
     from lumen_rag.eval import evaluate
     from lumen_rag.eval.harness import load_cases
@@ -60,8 +61,6 @@ def run_benchmark(root: Path, k: int = K) -> dict:
     from lumen_rag.ingestion.pipeline import ingest_documents
     from lumen_rag.retrieval import Retriever
     from lumen_rag.store import VectorStore
-
-    import lumen_rag
 
     package_dir = Path(lumen_rag.__file__).resolve().parent
     if root not in package_dir.parents:
@@ -118,8 +117,10 @@ def compare(base: dict | None, head: dict, max_drop: float = 0.01) -> tuple[str,
         comparable = False
     elif base.get("data_fingerprint") != head.get("data_fingerprint"):
         lines += [
-            "⚠️ The eval set or its documents changed in this pull request, so the numbers below are **not "
-            "comparable** with the base branch and do not block the merge.",
+            (
+                "⚠️ The eval set or its documents changed in this pull request, so the numbers below are **not "
+                "comparable** with the base branch and do not block the merge."
+            ),
             "",
         ]
         comparable = False
