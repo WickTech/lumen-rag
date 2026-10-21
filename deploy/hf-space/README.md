@@ -14,7 +14,8 @@ license: mit
 # Lumen RAG — live demo
 
 Upload documents, ask questions, and watch retrieval quality (recall@k, MRR,
-nDCG@k) render live from the eval harness. Runs 100% offline on a
-deterministic hashing embedder — no API key required.
+nDCG@k) render live from the eval harness. Retrieval uses a real embedding
+model (BAAI/bge-small-en-v1.5) running locally on CPU, and the app refuses
+questions the documents can't answer. No API key required.
 
 Source: https://github.com/WickTech/lumen-rag

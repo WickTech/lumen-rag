@@ -8,6 +8,12 @@ import os
 from pathlib import Path
 from secrets import compare_digest
 
+# The Space runs a real local embedder (bge-small, ONNX via fastembed, CPU) and
+# refuses low-confidence questions. Set before importing lumen_rag: settings are
+# read at import. The threshold is the calibrated value from scripts/benchmark.py.
+os.environ.setdefault("LUMEN_EMBEDDER", "fastembed")
+os.environ.setdefault("LUMEN_ABSTAIN_THRESHOLD", "0.66")
+
 import gradio as gr
 import spaces
 
@@ -35,10 +41,10 @@ def _rate_limited(request: gr.Request | None, bucket: str, limit: int, window_s:
 
 
 def _find_repo_root() -> Path:
-    # Locally this file lives at deploy/hf-space/gradio_app.py (repo root 3 up);
-    # on the deployed Space it's copied to app.py at the repo root (0 up).
+    # Locally this file lives at deploy/hf-space/gradio_app.py (repo root 2 dirs up
+    # from its directory); on the deployed Space it's copied to app.py at the root.
     here = Path(__file__).resolve().parent
-    for candidate in (here, here.parent.parent.parent):
+    for candidate in (here, here.parent.parent):
         if (candidate / "data" / "docs").is_dir():
             return candidate
     return here
@@ -104,11 +110,15 @@ def ask(question: str, k: int, mode: str, request: gr.Request):
     if len(engine.store) == 0:
         return "Index is empty — load the sample corpus or upload files first.", ""
     result = engine.query(question, k=int(k), mode=mode)
-    citations = "\n".join(
+    lines = []
+    if result.confidence is not None:
+        verdict = "below threshold, abstained" if result.abstained else "answered"
+        lines.append(f"Retrieval confidence {result.confidence:.3f} ({verdict})")
+    lines += [
         f"[{c['n']}] {c['doc_id']} — {c['source']} (score={c['score']:.3f})"
         for c in result.citations
-    )
-    return result.text, citations
+    ]
+    return result.text, "\n".join(lines)
 
 
 def run_eval(k: int, request: gr.Request) -> str:
@@ -127,9 +137,10 @@ def run_eval(k: int, request: gr.Request) -> str:
 with gr.Blocks(title="Lumen RAG") as demo:
     gr.Markdown(
         "# Lumen RAG\n"
-        "Transparent, evaluated RAG: ingest documents, retrieve with hybrid "
-        "vector+BM25 search, answer with citations. Runs 100% offline on a "
-        "deterministic hashing embedder — no API key required."
+        "Transparent, evaluated RAG: ingest documents, retrieve with dense "
+        "(bge-small, running locally on CPU), BM25 or hybrid search, answer with "
+        "citations, and refuse questions the documents can't answer. No API key: "
+        "answers are extractive, not generated."
     )
 
     with gr.Row():
@@ -151,10 +162,10 @@ with gr.Blocks(title="Lumen RAG") as demo:
     question = gr.Textbox(label="Question")
     with gr.Row():
         k = gr.Slider(1, 20, value=5, step=1, label="k")
-        mode = gr.Dropdown(["hybrid", "vector", "bm25"], value="hybrid", label="Retrieval mode")
+        mode = gr.Dropdown(["vector", "hybrid", "bm25"], value="vector", label="Retrieval mode")
     ask_btn = gr.Button("Ask", variant="primary")
     answer_box = gr.Textbox(label="Answer", lines=4)
-    citations_box = gr.Textbox(label="Citations", lines=4)
+    citations_box = gr.Textbox(label="Confidence and citations", lines=4)
 
     ask_btn.click(ask, inputs=[question, k, mode], outputs=[answer_box, citations_box])
 
