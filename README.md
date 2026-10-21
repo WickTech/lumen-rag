@@ -27,7 +27,7 @@ reranking — instead of vibes.
 
 | | |
 |---|---|
-| **Tests** | 41/41 passing — chunker, vector store, BM25, RRF, loaders, IR metrics, end-to-end |
+| **Tests** | 104 passing (11 need Postgres/optional deps and are skipped by default) — chunker, vector store, BM25, RRF, loaders, IR metrics, end-to-end |
 | **CI** | GitHub Actions: lint (ruff) → pytest → eval regression guard → v2 set validation; a separate job comments retrieval metric deltas on every PR |
 | **Python** | 3.10 and 3.12 tested |
 | **Offline** | Full pipeline runs with zero API keys or network access |

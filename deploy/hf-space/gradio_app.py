@@ -8,8 +8,8 @@ import os
 from pathlib import Path
 from secrets import compare_digest
 
-import spaces
 import gradio as gr
+import spaces
 
 from lumen_rag.api.ratelimit import check as rate_check
 from lumen_rag.engine import RagEngine

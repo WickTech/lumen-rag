@@ -11,7 +11,6 @@ thresholds when you improve the pipeline; never lower them to pass CI.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
