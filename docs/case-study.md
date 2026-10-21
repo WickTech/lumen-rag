@@ -43,7 +43,7 @@ returns most of the corpus. Chunking raises MRR from 0.96 to 1.00 (the right
 document is always first) while recall dips from 1.00 to 0.97 (one question loses
 its second relevant chunk's parent from the top 5). Treat this set as a smoke test.
 
-### v2 (120 docs, 176 questions, `data/eval_v2`)
+### v2 (120 docs, 216 questions, `data/eval_v2`), hashing embedder
 
 | Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
 |---|---|---|---|---|---|
@@ -57,6 +57,20 @@ its second relevant chunk's parent from the top 5). Treat this set as a smoke te
 | BM25 only | 0.98 | 0.89 | 0.86 | 0.80 |
 | hybrid (BM25 + RRF) | 0.84 | 0.78 | 0.76 | 0.59 |
 
+### v2 with a real embedder (`BAAI/bge-small-en-v1.5`, local CPU)
+
+| Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
+|---|---|---|---|---|---|
+| vector-only | 0.97 | 0.23 | 0.95 | 0.94 | 0.99 |
+| BM25 only | 0.90 | 0.21 | 0.88 | 0.87 | 0.94 |
+| hybrid (BM25 + RRF) | 0.97 | 0.23 | 0.91 | 0.91 | 0.99 |
+| vector-only + MiniLM rerank | 0.98 | 0.23 | 0.97 | 0.96 | 0.99 |
+
+| MRR by category | direct | disambiguation | multihop | paraphrase |
+|---|---|---|---|---|
+| vector-only | 0.98 | 0.96 | 0.93 | 0.93 |
+| hybrid (BM25 + RRF) | 0.99 | 0.87 | 0.95 | 0.86 |
+
 ## Reading the numbers honestly
 
 **The v2 set separates configurations; v1 does not.** On v2 the best and worst
@@ -66,10 +80,12 @@ clearly harder than direct ones, which is what a retrieval benchmark should show
 **Hybrid sits between its inputs because the dense half is weak.** The offline
 `HashingEmbedder` is a bag-of-words feature hasher, so its ranking is a noisy
 version of what BM25 already computes. Reciprocal Rank Fusion then mixes a good
-ranking with a worse one and the result is worse than BM25 alone. This is a
-statement about this offline embedder; whether a real semantic embedder
-(`OPENAI_API_KEY`, `text-embedding-3-small`) changes the order has not been
-measured here and should be the next experiment (see the roadmap).
+ranking with a worse one and the result is worse than BM25 alone. This was a
+statement about the offline embedder, and the real-embedder run confirms it: with
+bge-small the order flips. Dense search alone is best (MRR 0.95), and fusing in
+BM25 now lowers it to 0.91, mostly on disambiguation (0.96 → 0.87), where
+keyword matches promote the near-duplicate distractor documents. Fusion weights
+are a per-corpus decision, not a default to trust.
 
 **Chunking is not exercised by v2.** Its documents are 60 to 110 words, shorter
 than the 120-word chunk window, so chunked and unchunked runs are identical. The

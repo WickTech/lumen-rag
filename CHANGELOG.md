@@ -3,6 +3,26 @@
 All notable changes. Dates are 2026. Versioning follows [SemVer](https://semver.org/); the project is
 pre-1.0, so minor versions may change behaviour.
 
+## [Unreleased]
+
+### Added
+- **Pluggable embedders**: `LUMEN_EMBEDDER=auto|hashing|fastembed|openai`. `fastembed` runs
+  `BAAI/bge-small-en-v1.5` locally (ONNX, CPU, no API key; `embed` extra). `auto` keeps the old behaviour.
+- **Abstention**: with `LUMEN_ABSTAIN_THRESHOLD` set, the engine refuses questions whose retrieval
+  confidence is below it, without calling the model. `/query`, `/query/stream` and `lumen ask` report
+  `abstained` and `confidence`. Off by default.
+- `lumen_rag.eval.abstention`: confidence sweep, AUROC, and threshold calibration on a held-out split.
+  `lumen eval-answers --claims --abstain-threshold` measures the effect on answers.
+- `scripts/benchmark.py --embedder --rerank --abstain`, with per-query latency.
+- 40 near-miss unanswerable questions in eval set v2 (now 216 questions, 63 unanswerable).
+
+### Changed
+- The HF Space demo uses the bge-small embedder, dense retrieval by default, and abstention.
+
+### Fixed
+- Loading a saved index with an embedder of a different dimension now fails with a clear message.
+- The test suite no longer picks up an `OPENAI_API_KEY` from a developer `.env` during collection.
+
 ## [0.1.0] - unreleased
 
 First tagged release. The engine existed before; this release adds the evaluation and

@@ -1,8 +1,9 @@
 {
   "set": "v2",
   "k": 5,
+  "embedder": "hashing",
   "n_cases": 153,
-  "n_unanswerable": 23,
+  "n_unanswerable": 63,
   "results": [
     {
       "config": "vector-only",
@@ -14,6 +15,7 @@
       "mrr": 0.6932,
       "ndcg@k": 0.685,
       "hit_rate": 0.7843,
+      "latency_ms": 0.7,
       "by_category": {
         "direct": {
           "n": 42,
@@ -43,6 +45,53 @@
           "ndcg@k": 0.5274,
           "hit_rate": 0.7586
         }
+      },
+      "abstention": {
+        "threshold": 0.2621,
+        "auroc": 0.5287,
+        "auroc_test": 0.576,
+        "n_dev": 109,
+        "n_test": 107,
+        "n_unanswerable_test": 31,
+        "dev": {
+          "threshold": 0.2621,
+          "refusal_rate_unanswerable": 0.1875,
+          "false_refusal_rate": 0.07792207792207792,
+          "answered_with_evidence": 0.6883116883116883,
+          "correct_outcome_rate": 0.5412844036697247
+        },
+        "test": {
+          "threshold": 0.2621,
+          "refusal_rate_unanswerable": 0.25806451612903225,
+          "false_refusal_rate": 0.07894736842105263,
+          "answered_with_evidence": 0.7631578947368421,
+          "correct_outcome_rate": 0.616822429906542
+        },
+        "conservative": {
+          "max_false_refusal": 0.05,
+          "threshold": 0.2129,
+          "dev": {
+            "threshold": 0.2129,
+            "refusal_rate_unanswerable": 0.0625,
+            "false_refusal_rate": 0.03896103896103896,
+            "answered_with_evidence": 0.7142857142857143,
+            "correct_outcome_rate": 0.5229357798165137
+          },
+          "test": {
+            "threshold": 0.2129,
+            "refusal_rate_unanswerable": 0.03225806451612903,
+            "false_refusal_rate": 0.013157894736842105,
+            "answered_with_evidence": 0.8157894736842105,
+            "correct_outcome_rate": 0.5887850467289719
+          }
+        },
+        "no_abstention_test": {
+          "threshold": -Infinity,
+          "refusal_rate_unanswerable": 0.0,
+          "false_refusal_rate": 0.0,
+          "answered_with_evidence": 0.8289473684210527,
+          "correct_outcome_rate": 0.5887850467289719
+        }
       }
     },
     {
@@ -55,6 +104,7 @@
       "mrr": 0.8779,
       "ndcg@k": 0.8668,
       "hit_rate": 0.9412,
+      "latency_ms": 0.7,
       "by_category": {
         "direct": {
           "n": 42,
@@ -84,6 +134,53 @@
           "ndcg@k": 0.7473,
           "hit_rate": 0.9655
         }
+      },
+      "abstention": {
+        "threshold": 0.2621,
+        "auroc": 0.5287,
+        "auroc_test": 0.576,
+        "n_dev": 109,
+        "n_test": 107,
+        "n_unanswerable_test": 31,
+        "dev": {
+          "threshold": 0.2621,
+          "refusal_rate_unanswerable": 0.1875,
+          "false_refusal_rate": 0.07792207792207792,
+          "answered_with_evidence": 0.8701298701298701,
+          "correct_outcome_rate": 0.6697247706422018
+        },
+        "test": {
+          "threshold": 0.2621,
+          "refusal_rate_unanswerable": 0.25806451612903225,
+          "false_refusal_rate": 0.07894736842105263,
+          "answered_with_evidence": 0.881578947368421,
+          "correct_outcome_rate": 0.7009345794392523
+        },
+        "conservative": {
+          "max_false_refusal": 0.05,
+          "threshold": 0.2129,
+          "dev": {
+            "threshold": 0.2129,
+            "refusal_rate_unanswerable": 0.0625,
+            "false_refusal_rate": 0.03896103896103896,
+            "answered_with_evidence": 0.9090909090909091,
+            "correct_outcome_rate": 0.6605504587155964
+          },
+          "test": {
+            "threshold": 0.2129,
+            "refusal_rate_unanswerable": 0.03225806451612903,
+            "false_refusal_rate": 0.013157894736842105,
+            "answered_with_evidence": 0.9342105263157895,
+            "correct_outcome_rate": 0.6728971962616822
+          }
+        },
+        "no_abstention_test": {
+          "threshold": -Infinity,
+          "refusal_rate_unanswerable": 0.0,
+          "false_refusal_rate": 0.0,
+          "answered_with_evidence": 0.9473684210526315,
+          "correct_outcome_rate": 0.6728971962616822
+        }
       }
     },
     {
@@ -96,6 +193,7 @@
       "mrr": 0.7306,
       "ndcg@k": 0.737,
       "hit_rate": 0.8562,
+      "latency_ms": 0.9,
       "by_category": {
         "direct": {
           "n": 42,
@@ -124,6 +222,53 @@
           "mrr": 0.7569,
           "ndcg@k": 0.6597,
           "hit_rate": 0.8966
+        }
+      },
+      "abstention": {
+        "threshold": 0.2621,
+        "auroc": 0.5287,
+        "auroc_test": 0.576,
+        "n_dev": 109,
+        "n_test": 107,
+        "n_unanswerable_test": 31,
+        "dev": {
+          "threshold": 0.2621,
+          "refusal_rate_unanswerable": 0.1875,
+          "false_refusal_rate": 0.07792207792207792,
+          "answered_with_evidence": 0.7792207792207793,
+          "correct_outcome_rate": 0.6055045871559633
+        },
+        "test": {
+          "threshold": 0.2621,
+          "refusal_rate_unanswerable": 0.25806451612903225,
+          "false_refusal_rate": 0.07894736842105263,
+          "answered_with_evidence": 0.8026315789473685,
+          "correct_outcome_rate": 0.6448598130841121
+        },
+        "conservative": {
+          "max_false_refusal": 0.05,
+          "threshold": 0.2129,
+          "dev": {
+            "threshold": 0.2129,
+            "refusal_rate_unanswerable": 0.0625,
+            "false_refusal_rate": 0.03896103896103896,
+            "answered_with_evidence": 0.8051948051948052,
+            "correct_outcome_rate": 0.5871559633027523
+          },
+          "test": {
+            "threshold": 0.2129,
+            "refusal_rate_unanswerable": 0.03225806451612903,
+            "false_refusal_rate": 0.013157894736842105,
+            "answered_with_evidence": 0.8552631578947368,
+            "correct_outcome_rate": 0.616822429906542
+          }
+        },
+        "no_abstention_test": {
+          "threshold": -Infinity,
+          "refusal_rate_unanswerable": 0.0,
+          "false_refusal_rate": 0.0,
+          "answered_with_evidence": 0.868421052631579,
+          "correct_outcome_rate": 0.616822429906542
         }
       }
     }
