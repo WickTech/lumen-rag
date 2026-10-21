@@ -114,6 +114,7 @@ def main() -> None:
     parser.add_argument("--embedder", choices=["hashing", "fastembed", "openai"], default="hashing")
     parser.add_argument("--rerank", action="store_true", help=f"add a hybrid + {RERANKER} row")
     parser.add_argument("--abstain", action="store_true", help="calibrate and report abstention")
+    parser.add_argument("--decompose", action="store_true", help="add rows with query decomposition")
     parser.add_argument("--reader", default="", help="with --abstain: SQuAD 2.0 ONNX reader to compare")
     args = parser.parse_args()
     spec = SETS[args.which]
@@ -126,6 +127,14 @@ def main() -> None:
         # Dense + rerank too: with a strong embedder, dense alone can beat the fusion.
         dense = configs[0]
         configs.append({**dense, "name": f"{dense['name']} + rerank", "rerank": True})
+
+    if args.decompose:
+        # Same retrieval, compound questions split into sub-queries fused by RRF.
+        configs += [
+            {**c, "name": f"{c['name']} + decomposition", "decompose": True}
+            for c in list(configs)
+            if c["mode"] != "bm25"
+        ]
 
     cases = load_cases(spec["eval"])
     n_queries = sum(c.answerable for c in cases)
@@ -141,7 +150,12 @@ def main() -> None:
             from lumen_rag.retrieval.rerank import CrossEncoderReranker
 
             reranker = CrossEncoderReranker(RERANKER)
-        retriever = Retriever(stores[key], embedder, reranker=reranker if cfg.get("rerank") else None)
+        retriever = Retriever(
+            stores[key],
+            embedder,
+            reranker=reranker if cfg.get("rerank") else None,
+            decompose=cfg.get("decompose", False),
+        )
         start = time.perf_counter()
         report = evaluate(retriever, cases, k=K, mode=cfg["mode"])
         latency_ms = (time.perf_counter() - start) * 1000 / max(1, n_queries)
@@ -163,7 +177,9 @@ def main() -> None:
 
         reader = ExtractiveReader(args.reader)
         cfg0 = configs[0]
-        retriever = Retriever(stores[(cfg0["chunk_size"], cfg0["overlap"])], embedder, reranker=None)
+        retriever = Retriever(
+            stores[(cfg0["chunk_size"], cfg0["overlap"])], embedder, reranker=None, decompose=False
+        )
         sim = score_cases(retriever, cases, k=K, mode=cfg0["mode"])
         start = time.perf_counter()
         read = score_cases(retriever, cases, k=K, mode=cfg0["mode"], reader=reader)
