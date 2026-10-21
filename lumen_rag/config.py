@@ -35,6 +35,9 @@ class Settings:
     reader_answers: bool = os.getenv("LUMEN_READER_ANSWERS", "") == "1"
     # "1" splits compound questions into sub-queries and fuses their results (RRF).
     decompose: bool = os.getenv("LUMEN_DECOMPOSE", "") == "1"
+    # "1" prepends "Document: <title>. Section: <headings>." to each chunk for embedding
+    # and BM25 (contextual retrieval, built offline). Re-ingest after changing it.
+    contextual: bool = os.getenv("LUMEN_CONTEXTUAL", "") == "1"
     chat_model: str = os.getenv("CHAT_MODEL", "gpt-4o-mini")
     index_dir: str = os.getenv("LUMEN_INDEX_DIR", ".lumen_index")
     admin_key: str = os.getenv("ADMIN_KEY", "")

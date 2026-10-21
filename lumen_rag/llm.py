@@ -63,6 +63,8 @@ def _citations(chunks: list[ScoredChunk]) -> list[dict]:
             "n": i + 1,
             "doc_id": c.chunk.doc_id,
             "source": c.chunk.metadata.get("source"),
+            # Contextual header ("Document: ... Section: ..."), when ingestion added one.
+            "context": c.chunk.metadata.get("context"),
             "score": round(c.score, 4),
         }
         for i, c in enumerate(chunks)

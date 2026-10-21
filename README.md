@@ -351,6 +351,13 @@ What the two tables say:
 - **Reranking buys the last few points at 25× the latency.** A 22M-parameter cross-encoder
   (`Xenova/ms-marco-MiniLM-L-6-v2`, CPU) takes MRR from 0.95 to 0.97 and costs ~470 ms a query.
   Worth it when precision at rank 1 matters; not for an autocomplete box.
+- **Contextual chunk headers help keyword search, barely move dense search.** With
+  `LUMEN_CONTEXTUAL=1` each chunk is embedded and BM25-indexed with a header naming its document
+  and section, e.g. `Document: Artificial Intelligence Risk Management Framework (AI RMF 1.0).
+  Section: 3. AI Risks and Trustworthiness > 3.4 Accountable and Transparent.`, built offline from
+  the title and the markdown, numbered or appendix headings (tables of contents and list items are
+  skipped). The header is used for search only; answers and citations show the plain chunk, and
+  citations name the section. See [Contextual chunk headers](#contextual-chunk-headers) below.
 - **Query decomposition did not help (a negative result, kept opt-in).** Splitting compound
   questions at the second question word ("…, and how soon must I submit the claim?") and adding
   each sub-question's best new document recovers the missing hop on some multi-hop questions and
@@ -361,6 +368,45 @@ What the two tables say:
   to try. Reproduce with `--decompose`; enable with `LUMEN_DECOMPOSE=1`.
 - **Not measured yet:** OpenAI `text-embedding-3-small`. The run is wired up
   (`--embedder openai`) but the key available when these numbers were taken had no API credit.
+
+### Contextual chunk headers
+
+[Anthropic's Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) prepends an
+LLM-written context to each chunk and reports 35% fewer failed retrievals (49% with contextual BM25).
+Lumen's headers are the offline, deterministic version: document title plus heading path, no model.
+v2 documents fit in one 120-word chunk, so they only show the effect with 40-word chunks, where a
+chunk loses its title; the NIST AI RMF set (22 questions graded by evidence spans,
+[`data/nist_rmf`](data/nist_rmf/README.md)) tests a real 48-page PDF with its section structure.
+
+| Set | Embedder, mode | without headers | with headers |
+|---|---|---|---|
+| v2, 40-word chunks (MRR) | bge-small, vector | 0.93 | 0.92 |
+| v2, 40-word chunks (MRR) | bge-small, hybrid | 0.90 | **0.92** (disambiguation 0.87 → 0.92) |
+| v2, 40-word chunks (MRR) | BM25 | 0.81 | **0.85** |
+| NIST PDF (hit@5) | bge-small, vector | 0.86 | **0.91** |
+| NIST PDF (hit@5) | bge-small, hybrid | 0.91 | 0.91 |
+| NIST PDF (hit@5) | BM25 | 0.82 | 0.77 |
+| NIST PDF (hit@5) | hashing, hybrid | 0.55 | **0.73** |
+
+- **Keyword search gains most on multi-document corpora**: the title gives every chunk the words
+  that tell look-alike documents apart (Pro vs Starter plan). Inside one document the title is the
+  same for every chunk, only the section path discriminates, and BM25 loses a question to the longer
+  chunks.
+- **Dense search with a good embedder barely moves** (one NIST question gained, v2 flat). The
+  gains are a fraction of Anthropic's because a title and a heading path say much less than an
+  LLM-written summary of where the chunk sits; that version needs an API key and is the obvious next
+  step.
+- **Headers move the abstention scores, so recalibrate when you turn them on.** On v2 the
+  similarity threshold barely changes (0.666 vs 0.664), but on the NIST PDF, whose header is a
+  long title plus section path, the end-to-end check with both gates drops from 10/10 to 8/10:
+  "Which function is designed to be cross-cutting…" falls from 0.70 to 0.60 similarity and is
+  wrongly refused, and one near miss rises above the reader threshold. That is why headers are off
+  by default and off on the HF Space, whose thresholds were calibrated without them.
+- NIST differences are one question (0.045) at a time, so read them as direction, not size.
+
+Reproduce: `python scripts/benchmark.py --set v2 --embedder fastembed --contextual`,
+`python scripts/real_pdf_check.py --retrieval`, and `LUMEN_CONTEXTUAL=1 python scripts/real_pdf_check.py`.
+Enable with `LUMEN_CONTEXTUAL=1` and re-ingest.
 
 ### v1 (smoke test, hashing embedder)
 
@@ -622,7 +668,8 @@ answerer treat the rates as an approximation. `diagnose_claims(..., aligner=fn)`
 - [x] **Answerability check beyond similarity** — an extractive SQuAD 2.0 reader refuses near misses that similarity lets through
 - [x] **Query decomposition** for multi-hop questions: measured, no gain with a real embedder (see Benchmarks); kept opt-in
 - [ ] **LLM query rewriting** for implicit multi-hop questions (needs an API key with credit)
-- [ ] **Contextual chunk headers** — document context prepended before embedding and BM25
+- [x] **Contextual chunk headers** — offline title + section headers before embedding and BM25; helps keyword search, small effect on dense (see Benchmarks)
+- [ ] **LLM-written chunk context** — Anthropic's full version, needs an API key
 - [ ] **Public benchmark** — BEIR SciFact alongside the in-repo sets
 - [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall
 

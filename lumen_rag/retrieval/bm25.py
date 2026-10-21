@@ -16,6 +16,8 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from ..ingestion.context import contextual_text
+
 if TYPE_CHECKING:
     from ..store import Chunk, ScoredChunk
 
@@ -49,7 +51,8 @@ class BM25Index:
         total_len = 0
 
         for chunk in chunks:
-            tokens = _tokenize(chunk.text)
+            # Index the contextual header too, when ingestion added one.
+            tokens = _tokenize(contextual_text(chunk.text, chunk.metadata))
             tf = Counter(tokens)
             term_freqs.append(tf)
             for tok in tf:

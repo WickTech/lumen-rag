@@ -134,7 +134,7 @@ def ask(question: str, k: int, mode: str, request: gr.Request):
         reader = "" if result.answerability is None else f", reader answerability {result.answerability:.1f}"
         lines.append(f"Retrieval confidence {result.confidence:.3f}{reader} ({verdict})")
     lines += [
-        f"[{c['n']}] {c['doc_id']} — {c['source']} (score={c['score']:.3f})"
+        f"[{c['n']}] {c['doc_id']} — {(c.get('context') or c['source'])} (score={c['score']:.3f})"
         for c in result.citations
     ]
     return result.text, "\n".join(lines)

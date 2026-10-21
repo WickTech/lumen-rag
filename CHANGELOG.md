@@ -13,6 +13,11 @@ pre-1.0, so minor versions may change behaviour.
   off-topic questions separately; the 40 near-miss rows in eval set v2 are tagged `near_miss`.
 - `scripts/real_pdf_check.py`: end-to-end check on the NIST AI RMF 1.0 PDF.
 - `lumen eval-answers --claims` now runs the engine's own path, so both gates are measured.
+- **Contextual chunk headers** (`LUMEN_CONTEXTUAL=1`, `benchmark.py --contextual`): each chunk is
+  embedded and BM25-indexed with "Document: <title>. Section: <heading path>.", built offline from
+  markdown, numbered and appendix headings; citations carry it as `context`. PDF loading keeps the
+  PDF's title. Measured on v2 with small chunks and on a new NIST AI RMF evidence-span set
+  (`data/nist_rmf`, `lumen_rag.eval.evidence`, `real_pdf_check.py --retrieval`).
 - **Query decomposition** (`LUMEN_DECOMPOSE=1`, `benchmark.py --decompose`): compound questions are
   split into sub-questions whose best new documents can join the results. Measured: no gain on eval
   set v2 with bge-small, a loss in hybrid mode; off by default and documented as a negative result.

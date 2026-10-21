@@ -17,7 +17,9 @@ as such. Hiring claims are anecdotal; no source gave data on what actually earns
 | 16. README test count | **Done** | #9 |
 | Demo mismatch (Space vs README GIF) | **Done**: the Space serves the README's UI | #11 |
 
-Gaps 6 to 15 are unchanged.
+| 9. Contextual chunking | **Done (offline headers)**: title + section path; BM25 MRR +0.04, hybrid +0.02 on v2 small chunks, dense flat; shifts abstention scores (NIST end-to-end 10/10 → 8/10 without recalibration), so off by default; LLM-written context still open | README Benchmarks |
+
+Gaps 6 to 8 and 10 to 15 are unchanged.
 
 ## 1. What the research says a RAG pipeline needs
 

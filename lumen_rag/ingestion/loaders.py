@@ -30,8 +30,11 @@ from ..config import settings
 _MAX_EXTRACTED_CHARS = 2_000_000
 
 
-def _doc(path: Path, text: str) -> dict:
-    return {"id": path.stem, "text": text[:_MAX_EXTRACTED_CHARS], "metadata": {"source": str(path)}}
+def _doc(path: Path, text: str, title: str | None = None) -> dict:
+    metadata = {"source": str(path)}
+    if title:
+        metadata["title"] = title
+    return {"id": path.stem, "text": text[:_MAX_EXTRACTED_CHARS], "metadata": metadata}
 
 
 def load_txt(path: Path) -> dict:
@@ -49,7 +52,8 @@ def load_pdf(path: Path) -> dict:
 
     reader = PdfReader(str(path))
     pages = [page.extract_text() or "" for page in reader.pages]
-    return _doc(path, "\n\n".join(pages))
+    title = reader.metadata.title if reader.metadata else None
+    return _doc(path, "\n\n".join(pages), title=str(title).strip() if title else None)
 
 
 def load_docx(path: Path) -> dict:

@@ -159,7 +159,8 @@ $('askBtn').onclick = async () => {
     for (const c of r.citations) {
       const span = document.createElement('span');
       span.className = 'citation';
-      span.textContent = `[${c.n}] ${c.doc_id} · score ${Number(c.score).toFixed(3)}`;
+      const section = c.context && c.context.includes('Section: ') ? ' · ' + c.context.split('Section: ')[1] : '';
+      span.textContent = `[${c.n}] ${c.doc_id}${section} · score ${Number(c.score).toFixed(3)}`;
       citationsEl.appendChild(span);
     }
   } catch (e) {
