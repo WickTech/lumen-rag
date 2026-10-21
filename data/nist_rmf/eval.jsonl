@@ -1,0 +1,22 @@
+{"question": "How does the framework define risk?", "evidence": ["composite measure of an event’s probability of occurring"]}
+{"question": "Why can third-party components make risk hard to quantify?", "evidence": ["Risk can emerge both from third-party data, software or hardware itself"]}
+{"question": "Is the acceptable level of risk the same for every organization and use case?", "evidence": ["highly contextual and application and use-case specific"]}
+{"question": "What happens when organizations try to eliminate all negative risk?", "evidence": ["can be counterproductive in practice"]}
+{"question": "Should AI risk be handled separately from the rest of an organization's risk management?", "evidence": ["integrated and incorporated into broader enterprise risk management"]}
+{"question": "How many dimensions does the OECD use to classify AI lifecycle activities?", "evidence": ["five key socio-technical dimensions"]}
+{"question": "How is reliability defined?", "evidence": ["ability of an item to perform as required, without failure"]}
+{"question": "Which kinds of harm call for the most urgent prioritization?", "evidence": ["serious injury or death call for the most urgent prioritization"]}
+{"question": "Which existing NIST guidelines apply to protecting AI systems against attacks?", "evidence": ["Guidelines in the NIST Cybersecurity Framework"]}
+{"question": "What effect does openness about a system have on people's confidence in it?", "evidence": ["transparency increases confidence in the AI system"]}
+{"question": "What do explanations of a system's outputs help operators and users gain?", "evidence": ["gain deeper insights into the functionality and trustworthiness"]}
+{"question": "Which techniques support designing AI that protects personal information?", "evidence": ["Privacy-enhancing technologies"]}
+{"question": "How many major categories of AI bias has NIST identified?", "evidence": ["NIST has identified three major cate"]}
+{"question": "How should organizations check whether adopting the framework helped them?", "evidence": ["periodically evaluate whether the AI RMF has improved"]}
+{"question": "Which core function is infused throughout the other three?", "evidence": ["Governance is designed to be a cross-cutting function", "GOVERN is a cross-cutting function"]}
+{"question": "Why is it hard to anticipate what impacts an AI system will have?", "evidence": ["difficult to reliably anticipate impacts of AI systems"]}
+{"question": "What should risk measurement results be compared against?", "evidence": ["comparisons to performance benchmarks"]}
+{"question": "What is in place once organizations complete the last of the four core functions?", "evidence": ["After completing the MANAGE function"]}
+{"question": "What do temporal profiles describe?", "evidence": ["temporal profiles are descriptions of either the current state or the desired"]}
+{"question": "Who are the AI actors involved in design tasks?", "evidence": ["AI actors in this category include data scientists"]}
+{"question": "How can pre-trained models change the risk picture compared with traditional software?", "evidence": ["pre-trained models and transfer learning can advance research"]}
+{"question": "What kind of language should the framework be written in?", "evidence": ["Use clear and plain language"]}

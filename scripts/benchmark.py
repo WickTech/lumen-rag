@@ -86,6 +86,7 @@ SETS = {
 
 # Small, fast cross-encoder so the benchmark runs on a laptop CPU in minutes;
 # override with LUMEN_BENCH_RERANKER (e.g. BAAI/bge-reranker-base).
+SMALL_CHUNK, SMALL_OVERLAP = 40, 10
 RERANKER = os.getenv("LUMEN_BENCH_RERANKER", "Xenova/ms-marco-MiniLM-L-6-v2")
 
 
@@ -101,10 +102,12 @@ def make_embedder(name: str):
     raise ValueError(name)
 
 
-def build_store(docs_dir: Path, chunk_size: int, overlap: int, embedder) -> VectorStore:
+def build_store(docs_dir: Path, chunk_size: int, overlap: int, embedder, contextual: bool = False) -> VectorStore:
     store = VectorStore(dim=embedder.dim)
     docs = [load_file(p) for p in sorted(docs_dir.iterdir()) if p.suffix.lower() in _LOADERS]
-    ingest_documents(docs, store=store, embedder=embedder, chunk_size=chunk_size, overlap=overlap)
+    ingest_documents(
+        docs, store=store, embedder=embedder, chunk_size=chunk_size, overlap=overlap, contextual=contextual
+    )
     return store
 
 
@@ -115,6 +118,11 @@ def main() -> None:
     parser.add_argument("--rerank", action="store_true", help=f"add a hybrid + {RERANKER} row")
     parser.add_argument("--abstain", action="store_true", help="calibrate and report abstention")
     parser.add_argument("--decompose", action="store_true", help="add rows with query decomposition")
+    parser.add_argument(
+        "--contextual",
+        action="store_true",
+        help="add small-chunk rows with and without contextual chunk headers",
+    )
     parser.add_argument("--reader", default="", help="with --abstain: SQuAD 2.0 ONNX reader to compare")
     args = parser.parse_args()
     spec = SETS[args.which]
@@ -128,6 +136,17 @@ def main() -> None:
         dense = configs[0]
         configs.append({**dense, "name": f"{dense['name']} + rerank", "rerank": True})
 
+    if args.contextual:
+        # v2 documents fit in one default chunk, so their title is always in it.
+        # Small chunks are where a chunk loses its document; compare them with and
+        # without a "Document: <title>. Section: ..." header.
+        small = {"chunk_size": SMALL_CHUNK, "overlap": SMALL_OVERLAP}
+        configs += [
+            {**c, **small, "name": f"{c['name']} ({SMALL_CHUNK}-word chunks){label}", "contextual": ctx}
+            for c in list(spec["configs"])
+            for ctx, label in ((False, ""), (True, " + headers"))
+        ]
+
     if args.decompose:
         # Same retrieval, compound questions split into sub-queries fused by RRF.
         configs += [
@@ -138,14 +157,14 @@ def main() -> None:
 
     cases = load_cases(spec["eval"])
     n_queries = sum(c.answerable for c in cases)
-    stores: dict[tuple[int, int], VectorStore] = {}  # embed the corpus once per chunking
+    stores: dict[tuple, VectorStore] = {}  # embed the corpus once per chunking
     reranker = None
     rows = []
     reports = []
     for cfg in configs:
-        key = (cfg["chunk_size"], cfg["overlap"])
+        key = (cfg["chunk_size"], cfg["overlap"], cfg.get("contextual", False))
         if key not in stores:
-            stores[key] = build_store(spec["docs"], *key, embedder)
+            stores[key] = build_store(spec["docs"], *key[:2], embedder, contextual=key[2])
         if cfg.get("rerank") and reranker is None:
             from lumen_rag.retrieval.rerank import CrossEncoderReranker
 
@@ -178,7 +197,7 @@ def main() -> None:
         reader = ExtractiveReader(args.reader)
         cfg0 = configs[0]
         retriever = Retriever(
-            stores[(cfg0["chunk_size"], cfg0["overlap"])], embedder, reranker=None, decompose=False
+            stores[(cfg0["chunk_size"], cfg0["overlap"], False)], embedder, reranker=None, decompose=False
         )
         sim = score_cases(retriever, cases, k=K, mode=cfg0["mode"])
         start = time.perf_counter()

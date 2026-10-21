@@ -10,11 +10,17 @@ no gates, the retrieval-similarity gate, and the similarity gate plus the reader
 This is a spot check on one document, not a benchmark; see scripts/benchmark.py
 for calibrated numbers.
 
+``--retrieval`` instead measures retrieval inside the document with and without
+contextual chunk headers, on 22 questions graded by verbatim evidence spans
+(data/nist_rmf/eval.jsonl).
+
 Usage (needs the embed, reader and pdf extras; downloads ~200 MB of models once):
   python scripts/real_pdf_check.py
+  python scripts/real_pdf_check.py --retrieval   # embed and pdf extras only
 """
 from __future__ import annotations
 
+import argparse
 import sys
 import tempfile
 import time
@@ -26,8 +32,13 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 from lumen_rag import config
+from lumen_rag.embeddings import FastEmbedEmbedder, HashingEmbedder
 from lumen_rag.engine import RagEngine
+from lumen_rag.eval.evidence import evaluate_evidence, load_evidence_cases
 from lumen_rag.ingestion.loaders import load_file
+from lumen_rag.ingestion.pipeline import ingest_documents
+from lumen_rag.retrieval import Retriever
+from lumen_rag.store import VectorStore
 
 PDF_URL = "https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf"
 READER = "onnx-community/roberta-base-squad2-ONNX"
@@ -53,16 +64,50 @@ SETUPS = [
 ]
 
 
+def download(tmp: str) -> Path:
+    pdf = Path(tmp) / "NIST.AI.100-1.pdf"
+    print(f"Downloading {PDF_URL}")
+    # nvlpubs.nist.gov refuses Python's default user agent.
+    resp = httpx.get(PDF_URL, follow_redirects=True, timeout=60, headers={"User-Agent": "lumen-rag/0.1"})
+    resp.raise_for_status()
+    pdf.write_bytes(resp.content)
+    return pdf
+
+
+def retrieval(pdf: Path) -> None:
+    """hit@5 and MRR inside the document, with and without contextual chunk headers."""
+    cases = load_evidence_cases(ROOT / "data" / "nist_rmf" / "eval.jsonl")
+    doc = load_file(pdf)
+    print(f"{len(cases)} questions graded by evidence spans, k=5, 120-word chunks\n")
+    print("| Embedder | Mode | hit@5 | MRR | hit@5 + headers | MRR + headers |")
+    print("|---|---|---|---|---|---|")
+    for name, embedder in (("hashing", HashingEmbedder()), ("bge-small", FastEmbedEmbedder())):
+        stores = {}
+        for ctx in (False, True):
+            stores[ctx] = VectorStore(embedder.dim)
+            ingest_documents([doc], store=stores[ctx], embedder=embedder, contextual=ctx)
+        for mode in ("vector", "bm25", "hybrid"):
+            plain, headed = (
+                evaluate_evidence(Retriever(stores[ctx], embedder, reranker=None), cases, k=5, mode=mode)
+                for ctx in (False, True)
+            )
+            print(
+                f"| {name} | {mode} | {plain['hit@k']:.2f} | {plain['mrr']:.2f} "
+                f"| {headed['hit@k']:.2f} | {headed['mrr']:.2f} |"
+            )
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--retrieval", action="store_true", help="compare retrieval with and without headers")
+    args = parser.parse_args()
     config.settings.embedder = "fastembed"
     config.settings.reader_threshold = -3.5
     with tempfile.TemporaryDirectory() as tmp:
-        pdf = Path(tmp) / "NIST.AI.100-1.pdf"
-        print(f"Downloading {PDF_URL}")
-        # nvlpubs.nist.gov refuses Python's default user agent.
-        resp = httpx.get(PDF_URL, follow_redirects=True, timeout=60, headers={"User-Agent": "lumen-rag/0.1"})
-        resp.raise_for_status()
-        pdf.write_bytes(resp.content)
+        pdf = download(tmp)
+        if args.retrieval:
+            retrieval(pdf)
+            return
         engine = RagEngine()
         doc = load_file(pdf)
         total = engine.add_documents([doc])
