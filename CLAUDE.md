@@ -1,7 +1,8 @@
 # Lumen RAG: notes for working in this repo
 
-A small RAG engine with built-in evaluation. Read `README.md` for features and results,
-`docs/RAG_GAP_ANALYSIS.md` for the roadmap and its status.
+A small RAG engine with built-in evaluation. `README.md` is a short overview; detail lives in
+`docs/` (benchmarks, abstention, evaluation, architecture, configuration, roadmap) and
+`CONTRIBUTING.md`. `docs/RAG_GAP_ANALYSIS.md` tracks the roadmap and its status.
 
 ## Commands
 
@@ -12,7 +13,8 @@ A small RAG engine with built-in evaluation. Read `README.md` for features and r
 - Benchmarks:
   - `python scripts/benchmark.py --set v2 --abstain` (hashing, what CI uses)
   - `uv run --extra embed --extra rerank --extra reader python scripts/benchmark.py --set v2 --embedder fastembed --rerank --abstain --reader onnx-community/roberta-base-squad2-ONNX` (~15 min on CPU)
-  - Results are committed as `benchmark_results*.json`; README tables are copied from the printed output.
+  - Results are committed as `benchmark_results*.json`; the tables in `docs/benchmarks.md` and
+    `docs/abstention.md` are copied from the printed output (the README only has a summary table).
 - Real-document check: `python scripts/real_pdf_check.py` (NIST AI RMF PDF; needs embed, reader, pdf extras).
 - Eval set consistency: `python scripts/validate_eval_set.py`.
 
@@ -31,8 +33,8 @@ A small RAG engine with built-in evaluation. Read `README.md` for features and r
 
 ## Gotchas
 
-- A `.env` in the parent checkout (`/home/rishi/workspace/lumen-rag/.env`) is found by
-  `load_dotenv()`; it holds an OpenAI key with no credit, so `--embedder openai` fails with 429.
+- `load_dotenv()` searches parent directories, so a `.env` above a worktree is picked up too.
+  An `OPENAI_API_KEY` there switches `auto` to OpenAI; tests neutralise it, scripts do not.
 - An expired local HF login makes public model downloads fail with 401: set
   `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`.
 - HF Space (`deploy/hf-space/`): ZeroGPU only accepts apps launched through Gradio's

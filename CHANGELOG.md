@@ -5,6 +5,12 @@ pre-1.0, so minor versions may change behaviour.
 
 ## [Unreleased]
 
+### Changed
+- **README reorganised**: a short README (about, results at a glance, install, usage, credits) with
+  a table of contents; the detail moved to `docs/benchmarks.md`, `docs/abstention.md`,
+  `docs/evaluation.md`, `docs/architecture.md`, `docs/roadmap.md`, a new `docs/configuration.md`
+  listing every setting, and `CONTRIBUTING.md`.
+
 ### Added
 - **Answerability reader** (`LUMEN_READER`, `reader` extra): an extractive SQuAD 2.0 model on ONNX
   reads the retrieved passages and refuses when none contains an answer, after the similarity gate.
