@@ -14,6 +14,15 @@ class Settings:
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_base_url: str | None = os.getenv("OPENAI_BASE_URL") or None
     embed_model: str = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+    # Embedding backend: "auto" (OpenAI when a key is set, else hashing), "hashing",
+    # "fastembed" (local ONNX, needs the [embed] extra) or "openai".
+    embedder: str = os.getenv("LUMEN_EMBEDDER", "auto")
+    fastembed_model: str = os.getenv("LUMEN_FASTEMBED_MODEL", "BAAI/bge-small-en-v1.5")
+    # Refuse to answer when retrieval confidence is below this value (see
+    # Retriever.retrieve_with_confidence). Empty disables abstention.
+    abstain_threshold: float | None = (
+        float(os.environ["LUMEN_ABSTAIN_THRESHOLD"]) if os.getenv("LUMEN_ABSTAIN_THRESHOLD") else None
+    )
     chat_model: str = os.getenv("CHAT_MODEL", "gpt-4o-mini")
     index_dir: str = os.getenv("LUMEN_INDEX_DIR", ".lumen_index")
     admin_key: str = os.getenv("ADMIN_KEY", "")

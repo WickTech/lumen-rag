@@ -8,9 +8,9 @@ from . import tracing
 from .config import settings
 from .embeddings import get_embedder
 from .ingestion import ingest_documents
-from .llm import Answer, answer, answer_async
+from .llm import Answer, abstain, answer, answer_async
 from .retrieval import RetrievalMode, Retriever
-from .store import Store, VectorStore, get_store
+from .store import ScoredChunk, Store, VectorStore, get_store
 
 
 class RagEngine:
@@ -26,11 +26,27 @@ class RagEngine:
         self.retriever._bm25 = None  # invalidate cached BM25 index
         return len(self.store)
 
+    def retrieve(
+        self, question: str, k: int = 5, mode: RetrievalMode = "hybrid"
+    ) -> tuple[list[ScoredChunk], float | None, bool]:
+        """Retrieve context and decide whether to abstain.
+
+        Returns ``(chunks, confidence, abstained)``. With ``LUMEN_ABSTAIN_THRESHOLD``
+        unset this is plain retrieval: confidence is None and it never abstains.
+        """
+        threshold = settings.abstain_threshold
+        if threshold is None:
+            return self.retriever.retrieve(question, k=k, mode=mode), None, False
+        chunks, confidence = self.retriever.retrieve_with_confidence(question, k=k, mode=mode)
+        return chunks, confidence, confidence < threshold
+
     def query(self, question: str, k: int = 5, mode: RetrievalMode = "hybrid") -> Answer:
         with tracing.span("lumen.query", **self._query_attrs(question, k, mode)) as span:
-            chunks = self.retriever.retrieve(question, k=k, mode=mode)
-            result = answer(question, chunks)
+            chunks, confidence, abstained = self.retrieve(question, k=k, mode=mode)
+            result = abstain(confidence) if abstained else answer(question, chunks)
+            result.confidence = confidence
             tracing.set_attr(span, "lumen.chunks", len(chunks))
+            tracing.set_attr(span, "lumen.abstained", abstained)
             return result
 
     async def aquery(self, question: str, k: int = 5, mode: RetrievalMode = "hybrid") -> Answer:
@@ -41,9 +57,11 @@ class RagEngine:
         """
         with tracing.span("lumen.query", **self._query_attrs(question, k, mode)) as span:
             # to_thread copies the context, so retrieval spans stay children of lumen.query.
-            chunks = await asyncio.to_thread(self.retriever.retrieve, question, k=k, mode=mode)
-            result = await answer_async(question, chunks)
+            chunks, confidence, abstained = await asyncio.to_thread(self.retrieve, question, k, mode)
+            result = abstain(confidence) if abstained else await answer_async(question, chunks)
+            result.confidence = confidence
             tracing.set_attr(span, "lumen.chunks", len(chunks))
+            tracing.set_attr(span, "lumen.abstained", abstained)
             return result
 
     @staticmethod
@@ -65,4 +83,13 @@ class RagEngine:
             # Database-backed stores persist themselves: reconnect instead of reading files.
             return cls()
         store = VectorStore.load(directory or settings.index_dir)
-        return cls(store=store)
+        engine = cls(store=store)
+        if store.dim != engine.embedder.dim:
+            if len(store):
+                raise RuntimeError(
+                    f"The index in {directory or settings.index_dir} has {store.dim}-dim vectors but the "
+                    f"configured embedder ({settings.embedder}) produces {engine.embedder.dim}-dim ones. "
+                    "Re-ingest with this embedder (lumen ingest) or set LUMEN_EMBEDDER to the one used."
+                )
+            engine = cls()  # empty saved index: start fresh at the right dim
+        return engine

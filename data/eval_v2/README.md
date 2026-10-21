@@ -9,7 +9,7 @@ configuration and cannot show an improvement.
 
 - `docs/` — 120 short documents (60 to 110 words each), one markdown file per
   document. The file name (without `.md`) is the document id.
-- `eval.jsonl` — 176 labelled questions.
+- `eval.jsonl` — 216 labelled questions.
 
 ## Provenance and licence
 
@@ -27,7 +27,7 @@ the repository's MIT licence.
 | `paraphrase` | 51 | Same fact, different words ("holiday days" vs "paid leave"). |
 | `disambiguation` | 31 | Several near-identical documents (per region, plan, model or team); only one is right. |
 | `multihop` | 29 | The answer needs two documents; both must be retrieved. |
-| `unanswerable` | 23 | The corpus does not contain the answer. No relevant docs; counted, not scored. |
+| `unanswerable` | 63 | The corpus does not contain the answer. No relevant docs; not scored for retrieval, used to calibrate abstention. The last 40 are *near misses*: on-topic for a document that exists, but the fact asked for is absent ("Which brand of hardware security key does the company issue?"). |
 
 The corpus is built from 24 topic families of about five documents each (time
 off, equipment, expenses, on-call, runbooks, release process, pricing, support

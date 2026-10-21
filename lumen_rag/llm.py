@@ -29,11 +29,22 @@ SYSTEM_PROMPT = (
 
 _NO_CONTEXT = "I don't have any indexed context to answer that."
 
+ABSTAIN_TEXT = "I can't find this in the indexed documents, so I won't guess."
+
 
 @dataclass
 class Answer:
     text: str
     citations: list[dict]  # [{"n": 1, "doc_id": ..., "source": ..., "score": ...}]
+    # True when the engine refused because retrieval confidence was below
+    # LUMEN_ABSTAIN_THRESHOLD; no model was called.
+    abstained: bool = False
+    # Retrieval confidence, set only when abstention is enabled.
+    confidence: float | None = None
+
+
+def abstain(confidence: float) -> Answer:
+    return Answer(ABSTAIN_TEXT, [], abstained=True, confidence=confidence)
 
 
 def _format_context(chunks: list[ScoredChunk]) -> str:

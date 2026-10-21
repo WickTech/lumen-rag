@@ -1,6 +1,7 @@
 {
   "set": "v1",
   "k": 5,
+  "embedder": "hashing",
   "n_cases": 19,
   "n_unanswerable": 0,
   "results": [
@@ -14,6 +15,7 @@
       "mrr": 0.9649,
       "ndcg@k": 0.9774,
       "hit_rate": 1.0,
+      "latency_ms": 2.0,
       "by_category": {}
     },
     {
@@ -26,6 +28,7 @@
       "mrr": 1.0,
       "ndcg@k": 0.9796,
       "hit_rate": 1.0,
+      "latency_ms": 1.4,
       "by_category": {}
     },
     {
@@ -38,6 +41,7 @@
       "mrr": 0.9605,
       "ndcg@k": 0.9613,
       "hit_rate": 1.0,
+      "latency_ms": 0.6,
       "by_category": {}
     },
     {
@@ -50,6 +54,7 @@
       "mrr": 0.9737,
       "ndcg@k": 0.9677,
       "hit_rate": 1.0,
+      "latency_ms": 0.5,
       "by_category": {}
     }
   ]

@@ -174,4 +174,4 @@ def test_cli_claims_flag_runs_offline(tmp_path, monkeypatch, v2_retriever):
     summary = json.loads(next(ln for ln in result.output.splitlines() if ln.startswith("{")))
     assert summary["mode"] == "bm25" and summary["n_cases"] == 153
     rows = json.loads(out.read_text())
-    assert len(rows) == 176 and {"question", "outcome", "claims"} <= set(rows[0])
+    assert len(rows) == 216 and {"question", "outcome", "claims"} <= set(rows[0])

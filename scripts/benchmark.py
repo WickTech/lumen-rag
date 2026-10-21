@@ -10,30 +10,41 @@ Eval sets (``--set``):
   v1  data/docs (7 files) + data/eval.jsonl (19 questions). Tiny and saturated:
       k=5 returns 5 of the 7 documents, so recall is near 1.0 for any config.
       Kept as a fast smoke test.
-  v2  data/eval_v2/docs (120 short docs) + data/eval_v2/eval.jsonl (176
+  v2  data/eval_v2/docs (120 short docs) + data/eval_v2/eval.jsonl (216
       questions: direct, paraphrase, disambiguation, multihop, unanswerable).
       Discriminates between configurations; see data/eval_v2/README.md.
 
 Configurations compare chunking and retrieval mode. The retrieval mode is
 applied per config (vector | bm25 | hybrid), with the cross-encoder reranker
-disabled so the numbers are reproducible offline.
+disabled unless ``--rerank`` adds a "hybrid + rerank" row.
+
+``--embedder`` picks the dense model (hashing is the offline default; fastembed
+runs BAAI/bge-small-en-v1.5 locally; openai needs OPENAI_API_KEY). Results for a
+non-default embedder go to a file suffixed with its name.
+
+``--abstain`` also calibrates abstention on each configuration: threshold chosen
+on half the questions, refusal and false-refusal rates reported on the other half.
 
 Usage:
   python scripts/benchmark.py            # v1
   python scripts/benchmark.py --set v2
+  python scripts/benchmark.py --set v2 --embedder fastembed --rerank --abstain
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from lumen_rag.embeddings import get_embedder
+from lumen_rag.embeddings import FastEmbedEmbedder, HashingEmbedder, OpenAIEmbedder
 from lumen_rag.eval import evaluate
+from lumen_rag.eval.abstention import calibrate, score_cases
 from lumen_rag.eval.harness import load_cases
 from lumen_rag.ingestion.loaders import _LOADERS, load_file
 from lumen_rag.ingestion.pipeline import ingest_documents
@@ -67,40 +78,88 @@ SETS = {
 }
 
 
-def build_retriever(docs_dir: Path, chunk_size: int, overlap: int) -> Retriever:
-    embedder = get_embedder()
+# Small, fast cross-encoder so the benchmark runs on a laptop CPU in minutes;
+# override with LUMEN_BENCH_RERANKER (e.g. BAAI/bge-reranker-base).
+RERANKER = os.getenv("LUMEN_BENCH_RERANKER", "Xenova/ms-marco-MiniLM-L-6-v2")
+
+
+def make_embedder(name: str):
+    if name == "hashing":
+        return HashingEmbedder()
+    if name == "fastembed":
+        return FastEmbedEmbedder(os.getenv("LUMEN_FASTEMBED_MODEL", "BAAI/bge-small-en-v1.5"))
+    if name == "openai":
+        if not os.getenv("OPENAI_API_KEY"):
+            sys.exit("--embedder openai needs OPENAI_API_KEY")
+        return OpenAIEmbedder()
+    raise ValueError(name)
+
+
+def build_store(docs_dir: Path, chunk_size: int, overlap: int, embedder) -> VectorStore:
     store = VectorStore(dim=embedder.dim)
     docs = [load_file(p) for p in sorted(docs_dir.iterdir()) if p.suffix.lower() in _LOADERS]
     ingest_documents(docs, store=store, embedder=embedder, chunk_size=chunk_size, overlap=overlap)
-    # reranker=None: keep the benchmark offline and reproducible.
-    return Retriever(store, embedder, reranker=None)
+    return store
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lumen RAG retrieval benchmark")
     parser.add_argument("--set", dest="which", choices=sorted(SETS), default="v1")
+    parser.add_argument("--embedder", choices=["hashing", "fastembed", "openai"], default="hashing")
+    parser.add_argument("--rerank", action="store_true", help=f"add a hybrid + {RERANKER} row")
+    parser.add_argument("--abstain", action="store_true", help="calibrate and report abstention")
     args = parser.parse_args()
     spec = SETS[args.which]
+    embedder = make_embedder(args.embedder)
+
+    configs = list(spec["configs"])
+    if args.rerank:
+        base = configs[-1]
+        configs.append({**base, "name": f"{base['name']} + rerank", "rerank": True})
+        # Dense + rerank too: with a strong embedder, dense alone can beat the fusion.
+        dense = configs[0]
+        configs.append({**dense, "name": f"{dense['name']} + rerank", "rerank": True})
 
     cases = load_cases(spec["eval"])
+    n_queries = sum(c.answerable for c in cases)
+    stores: dict[tuple[int, int], VectorStore] = {}  # embed the corpus once per chunking
+    reranker = None
     rows = []
     reports = []
-    for cfg in spec["configs"]:
-        retriever = build_retriever(spec["docs"], cfg["chunk_size"], cfg["overlap"])
+    for cfg in configs:
+        key = (cfg["chunk_size"], cfg["overlap"])
+        if key not in stores:
+            stores[key] = build_store(spec["docs"], *key, embedder)
+        if cfg.get("rerank") and reranker is None:
+            from lumen_rag.retrieval.rerank import CrossEncoderReranker
+
+            reranker = CrossEncoderReranker(RERANKER)
+        retriever = Retriever(stores[key], embedder, reranker=reranker if cfg.get("rerank") else None)
+        start = time.perf_counter()
         report = evaluate(retriever, cases, k=K, mode=cfg["mode"])
-        rows.append({"config": cfg["name"], "mode": cfg["mode"], **report.as_dict(), "by_category": report.by_category})
+        latency_ms = (time.perf_counter() - start) * 1000 / max(1, n_queries)
+        row = {
+            "config": cfg["name"],
+            "mode": cfg["mode"],
+            **report.as_dict(),
+            "latency_ms": round(latency_ms, 1),
+            "by_category": report.by_category,
+        }
+        if args.abstain:
+            row["abstention"] = calibrate(score_cases(retriever, cases, k=K, mode=cfg["mode"]))
+        rows.append(row)
         reports.append((cfg["name"], report))
 
-    header = ["Configuration", f"recall@{K}", f"precision@{K}", "MRR", f"nDCG@{K}", "hit rate"]
+    print(f"Embedder: {args.embedder}\n")
+    header = ["Configuration", f"recall@{K}", f"precision@{K}", "MRR", f"nDCG@{K}", "hit rate", "ms/query"]
     lines = [
         "| " + " | ".join(header) + " |",
         "|" + "---|" * len(header),
     ]
     for r in rows:
         lines.append(
-            "| {config} | {recall@k:.2f} | {precision@k:.2f} | {mrr:.2f} | {ndcg@k:.2f} | {hit_rate:.2f} |".format(
-                **r
-            )
+            "| {config} | {recall@k:.2f} | {precision@k:.2f} | {mrr:.2f} | {ndcg@k:.2f} | {hit_rate:.2f} "
+            "| {latency_ms:.1f} |".format(**r)
         )
     print("\n".join(lines))
 
@@ -114,12 +173,43 @@ def main() -> None:
             cells = [f"{r['by_category'][c]['mrr']:.2f}" if c in r["by_category"] else "-" for c in categories]
             print("| " + " | ".join([r["config"], *cells]) + " |")
 
+    if args.abstain:
+        print("\nAbstention (thresholds chosen on the dev half, rates on the held-out half)\n")
+        head = [
+            "Configuration", "AUROC", "operating point", "threshold", "unanswerable refused",
+            "answerable wrongly refused", "correct outcome", "correct outcome, no abstention",
+        ]
+        print("| " + " | ".join(head) + " |")
+        print("|" + "---|" * len(head))
+        for r in rows:
+            a = r["abstention"]
+            base = a["no_abstention_test"]["correct_outcome_rate"]
+            points = [
+                ("max Youden J", a["threshold"], a["test"]),
+                (
+                    f"≤{a['conservative']['max_false_refusal']:.0%} false refusals",
+                    a["conservative"]["threshold"],
+                    a["conservative"]["test"],
+                ),
+            ]
+            for label, thr, t in points:
+                print(
+                    f"| {r['config']} | {a['auroc_test']:.2f} | {label} | {thr:.3f} "
+                    f"| {t['refusal_rate_unanswerable']:.2f} | {t['false_refusal_rate']:.2f} "
+                    f"| {t['correct_outcome_rate']:.2f} | {base:.2f} |"
+                )
+        first = rows[0]["abstention"]
+        print(f"\n(held-out half: {first['n_test']} questions, {first['n_unanswerable_test']} unanswerable)")
+
     out = spec["out"]
+    if args.embedder != "hashing":
+        out = out.with_name(f"{out.stem}_{args.embedder}{out.suffix}")
     out.write_text(
         json.dumps(
             {
                 "set": args.which,
                 "k": K,
+                "embedder": args.embedder,
                 "n_cases": reports[0][1].n_cases,
                 "n_unanswerable": reports[0][1].n_unanswerable,
                 "results": rows,

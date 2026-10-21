@@ -174,3 +174,43 @@
 {"question": "What is the target net promoter score?", "relevant_doc_ids": ["nps-survey"], "expected_answer": "45 or higher.", "category": "direct", "answerable": true, "evidence": [{"doc_id": "nps-survey", "span": "target score is 45 or higher"}]}
 {"question": "After the standard onboarding, who signs the go-live checklist and how much on-site support follows?", "relevant_doc_ids": ["onboarding-customer", "go-live-checklist"], "expected_answer": "A supervisor and the Halden deployment lead sign it, and a technician is on site at least 4 hours every working day for two weeks.", "category": "multihop", "answerable": true, "evidence": [{"doc_id": "onboarding-customer", "span": "takes 6 weeks from kickoff to go-live"}, {"doc_id": "go-live-checklist", "span": "A supervisor and the Halden deployment lead both sign the checklist"}]}
 {"question": "What was the net promoter score last quarter?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How much notice must employees give before starting parental leave?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Can Pune employees take leave in half-day units?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Is the home office grant taxable for employees based in Singapore?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which monitor brands are approved under the monitor stipend?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Is there an extra on-call payment for weeks that include a public holiday?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which travel agency books international flights for employees?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What is the onsite meal allowance in rupees for deployments in India?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How much does parking cost at the Singapore office?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which brand of hardware security key does the company issue?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How many failed login attempts lock a company account?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which VPN client software do employees install?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which encryption algorithm is used for full-disk encryption on company laptops?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Is there a free trial of the Pro plan?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What does the Starter plan cost with quarterly billing?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What is the first response time for non-critical Enterprise tickets?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What are the support hours for customers in Latin America?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What is the operating temperature range of the H200 robot?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How much does an H400 robot weigh?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What battery chemistry do the robots use?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How much does a charging station cost?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which company manufactures the emergency stop buttons?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Does the company pay for employees' safety shoes?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "From which IP addresses are webhook deliveries sent?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How many API tokens can one customer create?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How long are security camera recordings kept?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What is the deadline for answering a GDPR request for a copy of personal data?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Is there a bonus for referring a new customer?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Can employees appeal their performance review rating?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What salary increase comes with a promotion?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Is there a cafeteria at the Pune office?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What is the street address of the Frankfurt office?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Who is the site manager of the Austin office?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Can visitors use a guest Wi-Fi network?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How many hotfixes were shipped last quarter?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "How long are previous container images kept for rollbacks?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which bank issues the company's corporate cards?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "In which currency are purchase orders raised for the Austin office?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "Which conferences did the company sponsor last year?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What is the deductible on the company travel insurance?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}
+{"question": "What is the purchase price of an H200 robot?", "relevant_doc_ids": [], "expected_answer": null, "category": "unanswerable", "answerable": false, "evidence": []}

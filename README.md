@@ -12,10 +12,10 @@ engineering problem it actually is: it ships an **evaluation harness** so you ca
 prove that recall@5 went *up* when you change your chunking, embeddings, or
 reranking — instead of vibes.
 
-> 🔌 **Runs 100% offline.** With no API key, Lumen uses a deterministic hashing
-> embedder and an extractive answerer, so the full pipeline — including the eval
-> suite — runs in CI with zero secrets. Add `OPENAI_API_KEY` for real embeddings
-> and generated answers.
+> 🔌 **No API key needed.** Retrieval runs on a real embedding model
+> (`BAAI/bge-small-en-v1.5`) locally on CPU with `LUMEN_EMBEDDER=fastembed`, and CI
+> runs the whole pipeline, eval suite included, on a deterministic hashing embedder
+> with zero secrets. Add `OPENAI_API_KEY` for hosted embeddings and generated answers.
 
 ![Lumen RAG demo: load the sample corpus, ask a question, get a cited answer, run the built-in retrieval eval](https://raw.githubusercontent.com/WickTech/lumen-rag/master/docs/demo.gif)
 
@@ -27,7 +27,7 @@ reranking — instead of vibes.
 
 | | |
 |---|---|
-| **Tests** | 104 passing (11 need Postgres/optional deps and are skipped by default) — chunker, vector store, BM25, RRF, loaders, IR metrics, end-to-end |
+| **Tests** | 121 passing, 12 skipped by default (need Postgres, OpenTelemetry or a model download) — chunker, vector store, BM25, RRF, loaders, IR metrics, end-to-end |
 | **CI** | GitHub Actions: lint (ruff) → pytest → eval regression guard → v2 set validation; a separate job comments retrieval metric deltas on every PR |
 | **Python** | 3.10 and 3.12 tested |
 | **Offline** | Full pipeline runs with zero API keys or network access |
@@ -61,6 +61,8 @@ lumen serve && open http://localhost:8000
 - **Streaming answers** — Server-Sent Events on `POST /query/stream`.
 - **Multi-format ingestion** — `.txt`, `.md`, `.html`/`.htm` (no extra deps), `.pdf` (`pip install lumen-rag[pdf]`), `.docx` (`pip install lumen-rag[docx]`).
 - **Interactive demo UI** — upload docs, ask questions, and watch eval metrics render live at `/` (served by the FastAPI app, no separate frontend build).
+- **Pluggable embedders** — `LUMEN_EMBEDDER=fastembed` runs `BAAI/bge-small-en-v1.5` locally (ONNX, CPU, no torch, `pip install lumen-rag[embed]`); `openai` uses the hosted API; `hashing` is the dependency-free default that keeps CI offline.
+- **Abstention** — set `LUMEN_ABSTAIN_THRESHOLD` and the engine refuses questions whose retrieval confidence is too low, without calling the model; responses carry `abstained` and `confidence`. Calibrated on held-out questions; see [Abstention](#-abstention--refusing-what-the-documents-dont-say).
 - **Cross-encoder reranking** — optional second stage (`LUMEN_RERANKER=BAAI/bge-reranker-base`, `pip install lumen-rag[rerank]`): any mode over-fetches `k × LUMEN_RERANK_POOL` candidates and a BGE cross-encoder (ONNX via fastembed, no torch) picks the final top-k. On the bundled eval set at k=3: MRR 0.974 → 1.000, nDCG 0.968 → 0.980.
 - **Layout-aware parsing** — optional Docling backend (`LUMEN_DOCLING=1`, `pip install lumen-rag[docling]`) for PDF/DOCX/PPTX/HTML: reading order, multi-column pages, and tables exported as Markdown.
 - **📊 Evaluation harness** — recall@k, precision@k, MRR, nDCG@k, hit-rate over a labelled question set.
@@ -140,12 +142,16 @@ pip install "lumen-rag[pgvector,tracing] @ git+https://github.com/WickTech/lumen
 
 ```bash
 git clone https://github.com/WickTech/lumen-rag && cd lumen-rag
-pip install -e ".[dev]"            # add ,openai for real embeddings
+pip install -e ".[dev,embed]"      # embed = local bge-small embeddings; add ,openai for hosted ones
 
 # Index the sample corpus and ask a question (works offline)
 lumen ingest data/docs                                 # picks up .txt, .md, .html, .pdf, .docx
 lumen ask "How many approvals does a billing change need?"
 lumen ask "When do we deploy?" --mode bm25             # vector | bm25 | hybrid
+
+# Real embeddings, locally, plus refusal of low-confidence questions
+export LUMEN_EMBEDDER=fastembed LUMEN_ABSTAIN_THRESHOLD=0.66
+lumen ingest data/docs && lumen ask "What is our parental leave policy in Brazil?" --mode vector
 
 # Measure retrieval quality and enforce score thresholds
 python scripts/check_eval.py data/eval.jsonl --k 3 --mode hybrid
@@ -226,7 +232,7 @@ lumen eval data/eval_v2/eval.jsonl            # same metrics as the in-memory st
 ## 🧪 Testing
 
 ```bash
-pytest -q                                                   # 70 tests, all offline
+pytest -q                                                   # 121 pass offline, 12 skip without optional services
 ruff check lumen_rag tests                                  # lint
 python scripts/check_eval.py data/eval.jsonl --k 3          # eval regression guard (v1 smoke set)
 python scripts/validate_eval_set.py                         # eval set v2 consistency
@@ -272,21 +278,46 @@ October 2026; check their docs for current details.
 
 ---
 
-## 📊 Benchmarks — what chunking and retrieval mode actually buy you
+## 📊 Benchmarks — what embeddings, retrieval mode and reranking actually buy you
 
-Measured with `scripts/benchmark.py`, offline hashing embedder, no reranker, k=5.
-Two eval sets ship with the repo:
+Measured with `scripts/benchmark.py`, k=5. Two eval sets ship with the repo:
 
 - **v1** — `data/docs` (7 files) + `data/eval.jsonl` (19 questions). A fast smoke
   test, but **saturated**: k=5 returns 5 of the 7 documents, so recall is ~1.0
   for any configuration and tells you nothing.
-- **v2** — `data/eval_v2` (120 short docs, 176 questions in five categories:
+- **v2** — `data/eval_v2` (120 short docs, 216 questions in five categories:
   direct, paraphrase, disambiguation, multihop, unanswerable). Built so that
   configurations can be told apart; see [`data/eval_v2/README.md`](https://github.com/WickTech/lumen-rag/blob/master/data/eval_v2/README.md).
 
-Reproduce with `python scripts/benchmark.py` (v1) or `python scripts/benchmark.py --set v2`.
+Reproduce:
 
-### v2 (discriminating)
+```bash
+python scripts/benchmark.py --set v2 --abstain                                # hashing embedder (CI default)
+pip install -e ".[embed,rerank]"
+python scripts/benchmark.py --set v2 --embedder fastembed --rerank --abstain  # bge-small + MiniLM reranker
+```
+
+### v2 with a real embedder (`BAAI/bge-small-en-v1.5`, local, CPU)
+
+| Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate | ms/query |
+|---|---|---|---|---|---|---|
+| vector-only | 0.97 | 0.23 | 0.95 | 0.94 | 0.99 | 19 |
+| BM25 only | 0.90 | 0.21 | 0.88 | 0.87 | 0.94 | 1 |
+| hybrid (BM25 + RRF) | 0.97 | 0.23 | 0.91 | 0.91 | 0.99 | 15 |
+| hybrid + rerank | 0.97 | 0.23 | 0.96 | 0.95 | 0.98 | 488 |
+| vector-only + rerank | **0.98** | 0.23 | **0.97** | **0.96** | 0.99 | 489 |
+
+MRR by question category (153 answerable questions; the 63 unanswerable ones are used for abstention below):
+
+| Configuration | direct | disambiguation | multihop | paraphrase |
+|---|---|---|---|---|
+| vector-only | 0.98 | 0.96 | 0.93 | 0.93 |
+| BM25 only | 0.98 | 0.89 | 0.86 | 0.80 |
+| hybrid (BM25 + RRF) | 0.99 | 0.87 | 0.95 | 0.86 |
+| hybrid + rerank | 1.00 | 0.97 | 0.96 | 0.92 |
+| vector-only + rerank | 1.00 | 0.98 | 0.96 | 0.94 |
+
+### v2 with the offline hashing embedder (what CI runs)
 
 | Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
 |---|---|---|---|---|---|
@@ -294,21 +325,28 @@ Reproduce with `python scripts/benchmark.py` (v1) or `python scripts/benchmark.p
 | BM25 only | **0.90** | 0.21 | **0.88** | **0.87** | **0.94** |
 | hybrid (BM25 + RRF) | 0.82 | 0.19 | 0.73 | 0.74 | 0.86 |
 
-MRR by question category (153 answerable questions; the 23 unanswerable ones are counted, not scored):
-
 | Configuration | direct | disambiguation | multihop | paraphrase |
 |---|---|---|---|---|
 | vector-only | 0.84 | 0.77 | 0.67 | 0.54 |
 | BM25 only | 0.98 | 0.89 | 0.86 | 0.80 |
 | hybrid (BM25 + RRF) | 0.84 | 0.78 | 0.76 | 0.59 |
 
-Paraphrased and multi-hop questions are the hard cases for the offline embedder.
-Hybrid lands between its two inputs here: the hashing embedder is a weak,
-bag-of-words dense signal, so fusing it with BM25 pulls the ranking *down* from
-BM25 alone. That is a property of this offline embedder, not of hybrid retrieval
-in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes it.
+What the two tables say:
 
-### v1 (smoke test)
+- **The embedder was the bottleneck.** Swapping the hashing embedder for bge-small lifts
+  vector-only MRR from 0.69 to 0.95, and paraphrase MRR from 0.54 to 0.93: the questions that
+  share no words with their document are exactly what a semantic model fixes.
+- **The ranking of strategies flips.** With the weak embedder, BM25 alone wins and fusion drags it
+  down. With a real one, dense search wins and *BM25 now drags the fusion down* (MRR 0.95 → 0.91,
+  disambiguation 0.96 → 0.87): equal-weight RRF lets the weaker list promote near-duplicate
+  distractors. "Hybrid is always better" is not true on this corpus; measure it on yours.
+- **Reranking buys the last few points at 25× the latency.** A 22M-parameter cross-encoder
+  (`Xenova/ms-marco-MiniLM-L-6-v2`, CPU) takes MRR from 0.95 to 0.97 and costs ~470 ms a query.
+  Worth it when precision at rank 1 matters; not for an autocomplete box.
+- **Not measured yet:** OpenAI `text-embedding-3-small`. The run is wired up
+  (`--embedder openai`) but the key available when these numbers were taken had no API credit.
+
+### v1 (smoke test, hashing embedder)
 
 | Configuration | recall@5 | precision@5 | MRR | nDCG@5 | hit rate |
 |---|---|---|---|---|---|
@@ -322,6 +360,63 @@ in general; re-run with `OPENAI_API_KEY` set to see how a real embedder changes 
 > equal to chunked-vector. `evaluate()` did not apply the retrieval mode, so every
 > row had in fact been measured in hybrid mode and the "vector-only" labels were
 > wrong. `evaluate()` now takes `mode=`, and the numbers above are the real ones.
+
+
+## 🙅 Abstention — refusing what the documents don't say
+
+A RAG system that always answers will answer questions its documents cannot (the first of the
+[Seven Failure Points](https://arxiv.org/abs/2401.05856)). Lumen can refuse instead:
+
+```bash
+export LUMEN_EMBEDDER=fastembed LUMEN_ABSTAIN_THRESHOLD=0.66
+lumen ingest data/eval_v2/docs
+lumen ask "Are hotel minibar charges reimbursable?" --mode vector
+# I can't find this in the indexed documents, so I won't guess.
+# Retrieval confidence: 0.627 (abstained)
+lumen ask "What is the street address of the Frankfurt office?" --mode vector
+# Retrieval confidence: 0.800  -> answered: a near miss (the office doc exists, the address doesn't)
+```
+
+The confidence is the best cosine similarity between the question and any stored chunk (or, with
+a reranker configured, the sigmoid of the best cross-encoder score). Below the threshold the engine
+returns a refusal **without calling the model**, and `/query`, `/query/stream` and `lumen ask`
+report `abstained` and `confidence`. Unset, nothing changes.
+
+**How the threshold was chosen.** 63 of the 216 v2 questions are unanswerable; 40 of them are
+*near misses*, on-topic for a real document but asking for a fact it does not contain.
+`lumen_rag.eval.abstention` splits the set in half (stratified, deterministic), picks thresholds on
+one half and reports them on the other, so the numbers below are not tuned on their own test data.
+
+Held-out half (107 questions, 31 unanswerable), bge-small, vector mode:
+
+| Signal | AUROC | Operating point | Threshold | Unanswerable refused | Answerable wrongly refused | Right outcome* |
+|---|---|---|---|---|---|---|
+| no abstention | — | — | — | 0.00 | 0.00 | 0.70 |
+| top dense cosine | 0.75 | ≤5% false refusals | 0.664 | 0.26 | 0.03 | **0.76** |
+| top dense cosine | 0.75 | max Youden J | 0.740 | 0.71 | 0.29 | 0.71 |
+| cross-encoder score | 0.80 | ≤5% false refusals | 0.005 | 0.19 | 0.03 | 0.75 |
+| hashing cosine (CI) | 0.58 | max Youden J | 0.262 | 0.26 | 0.08 | 0.62 (0.59 without) |
+
+\*Refused if unanswerable, or answered with a relevant document in the top 5 if answerable.
+
+What it shows:
+
+- **The conservative setting is a clear win**: it refuses a quarter of the unanswerable questions
+  while turning away 3% of the answerable ones, and the share of right outcomes goes from 0.70 to 0.76.
+- **Pushing harder does not pay.** Balancing both errors equally (Youden's J) refuses 71% of
+  unanswerable questions but also 29% of answerable ones.
+- **Similarity cannot see near misses.** Measured on the full set, the dense signal separates the
+  original 23 unanswerable questions from answerable ones with AUROC 0.82, but the 40 near misses
+  only 0.69: "What is the street address of the Frankfurt office?" scores 0.80 against the
+  Frankfurt office page, which does not give one, higher than many answerable questions. Catching those needs an answerability check that reads the passage (an NLI model or
+  the LLM itself), which is the next roadmap item.
+- **With the hashing embedder abstention is close to chance** (AUROC 0.58). Calibrate per embedder:
+  thresholds do not transfer.
+
+Measured end to end with claim diagnostics (`lumen eval-answers --claims --abstain-threshold 0.664`,
+bge-small, vector mode): 17 of 63 unanswerable questions are now refused instead of answered
+(abstain rate 0 → 0.27), at the cost of answer accuracy on answerable questions going from 0.94 to
+0.92 (4 refused).
 
 ## ⚡ Async API and tracing
 
@@ -400,17 +495,20 @@ although every gold document was retrieved). Per **unanswerable question**: `abs
 
 Results on the [v2 set](https://github.com/WickTech/lumen-rag/blob/master/data/eval_v2/README.md), offline extractive answerer, k=5:
 
-| Retrieval mode | answer ok | retrieval-miss | generation-error | claim precision | faithfulness |
-|---|---|---|---|---|---|
-| vector-only | 0.73 | 0.23 | 0.05 | 0.33 | 1.00 |
-| BM25 only | **0.88** | 0.09 | 0.03 | 0.45 | 1.00 |
-| hybrid (BM25 + RRF) | 0.78 | 0.16 | 0.06 | 0.37 | 1.00 |
+| Embedder | Retrieval mode | answer ok | retrieval-miss | generation-error | claim precision | faithfulness |
+|---|---|---|---|---|---|---|
+| hashing | vector-only | 0.73 | 0.23 | 0.05 | 0.27 | 1.00 |
+| hashing | BM25 only | 0.88 | 0.09 | 0.03 | 0.36 | 1.00 |
+| hashing | hybrid (BM25 + RRF) | 0.78 | 0.16 | 0.06 | 0.30 | 1.00 |
+| bge-small | vector-only | **0.94** | 0.01 | 0.05 | 0.39 | 1.00 |
+| bge-small | hybrid (BM25 + RRF) | 0.92 | 0.02 | 0.06 | 0.39 | 1.00 |
 
 Reading it:
 
-- **Most wrong answers are retrieval failures.** Under vector-only search 23% of questions fail
-  because the gold document was not retrieved, against 5% where it was retrieved but the answer
-  still missed it. Better retrieval (BM25) is what lifts answer accuracy from 0.73 to 0.88.
+- **Most wrong answers were retrieval failures, and a real embedder removes them.** With the hashing
+  embedder, 23% of questions fail because the gold document was not retrieved, against 5% where it
+  was retrieved but the answer still missed it. bge-small cuts retrieval misses to 1% and lifts
+  answer accuracy from 0.73 to 0.94; what is left is generation error.
 - **A `generation-error` here means the answerer ignored evidence it had.** The offline answerer
   pastes only the top 2 chunks, so a gold document retrieved at rank 3 to 5 still produces a wrong
   answer.
@@ -419,8 +517,9 @@ Reading it:
   (`OPENAI_API_KEY`), where fabricated claims can appear.
 - **Claim precision is mostly answer noise**: the share of answer sentences that come from the gold
   document rather than from the other retrieved chunks it was stitched together with.
-- **The offline answerer never declines**, so 0 of 23 unanswerable questions are `abstained`. An
-  abstain-below-a-score rule is an obvious next step, and this report will measure it.
+- **The answerer itself never declines**, so without abstention 0 of 63 unanswerable questions are
+  `abstained`. With `--abstain-threshold 0.664` (bge-small, vector) 17 are; see
+  [Abstention](#-abstention--refusing-what-the-documents-dont-say).
 
 Alignment is a deterministic lexical overlap (share of a claim's content words found in a chunk,
 default threshold `--tau 0.6`). It cannot see paraphrase or negation, so with a generative
@@ -444,6 +543,12 @@ answerer treat the rates as an approximation. `diagnose_claims(..., aligner=fn)`
 - [x] **Claim-level diagnostics** — `lumen eval-answers --claims` attributes wrong answers to retrieval vs generation, offline
 - [x] **Multi-tenant namespaces** — `LUMEN_NAMESPACE` isolates collections per user/team (pgvector backend)
 - [x] **Async FastAPI endpoints** — non-blocking model calls on a pooled async client, blocking work in worker threads (async DB and embedder clients are still open)
+- [x] **Real embedder benchmark** — local bge-small (fastembed) next to the hashing baseline; OpenAI row pending
+- [x] **Abstention** — confidence-gated refusal, calibrated on held-out questions, measured end to end
+- [ ] **Answerability check beyond similarity** — near-miss questions defeat score gating (see Abstention); an NLI or LLM check is next
+- [ ] **Query decomposition** for multi-hop questions, measured on the v2 multihop category
+- [ ] **Contextual chunk headers** — document context prepended before embedding and BM25
+- [ ] **Public benchmark** — BEIR SciFact alongside the in-repo sets
 - [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall
 
 ---
