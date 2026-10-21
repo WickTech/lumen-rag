@@ -12,15 +12,24 @@ v0.1 is applied on top of the vector hits.
 When a cross-encoder reranker is configured (``LUMEN_RERANKER``), any mode
 over-fetches ``k * LUMEN_RERANK_POOL`` candidates and the cross-encoder picks
 the final top-k. See ``rerank.py``.
+
+``retrieve_with_confidence`` also returns a relevance confidence for the query,
+which the engine compares against ``LUMEN_ABSTAIN_THRESHOLD`` to refuse questions
+the corpus cannot answer. RRF and BM25 scores are rank- or corpus-relative, so
+they are not used: the signal is the cross-encoder score when a reranker is
+configured, otherwise the best dense cosine similarity in the store.
 """
 from __future__ import annotations
 
+import math
 import re
 from typing import Literal
 
+import numpy as np
+
 from .. import tracing
 from ..config import settings
-from ..embeddings import Embedder, get_embedder
+from ..embeddings import Embedder, embed_query, get_embedder
 from ..store import ScoredChunk, Store
 from .bm25 import BM25Index, reciprocal_rank_fusion
 from .rerank import Reranker, get_reranker
@@ -88,22 +97,68 @@ class Retriever:
                 "lumen.store": type(self.store).__name__,
             },
         ) as span:
-            results = self._retrieve(query, k, mode, rerank, rerank_weight)
+            query_vec = None if mode == "bm25" or len(self.store) == 0 else embed_query(self.embedder, query)
+            results = self._retrieve(query, k, mode, rerank, rerank_weight, query_vec)
             tracing.set_attr(span, "lumen.results", len(results))
             return results
 
+    def retrieve_with_confidence(
+        self,
+        query: str,
+        k: int = 5,
+        *,
+        mode: RetrievalMode = "hybrid",
+        rerank: bool = True,
+        rerank_weight: float = 0.25,
+    ) -> tuple[list[ScoredChunk], float]:
+        """``retrieve`` plus a confidence in [0, 1]-ish that the corpus answers *query*.
+
+        With a cross-encoder reranker: the sigmoid of the best reranked score.
+        Without one: the highest cosine similarity between the query and any stored
+        chunk, whatever the retrieval mode. The query is embedded once for both.
+        An empty store has confidence 0.
+        """
+        with tracing.span(
+            "lumen.retrieve",
+            **{
+                "lumen.mode": mode,
+                "lumen.k": k,
+                "lumen.reranker": self.reranker is not None,
+                "lumen.store": type(self.store).__name__,
+            },
+        ) as span:
+            if len(self.store) == 0:
+                return [], 0.0
+            needs_vec = mode != "bm25" or self.reranker is None
+            query_vec = embed_query(self.embedder, query) if needs_vec else None
+            results = self._retrieve(query, k, mode, rerank, rerank_weight, query_vec)
+            if self.reranker is not None:
+                confidence = _sigmoid(results[0].score) if results else 0.0
+            else:
+                top = self.store.search(query_vec, k=1)
+                confidence = top[0].score if top else 0.0
+            tracing.set_attr(span, "lumen.results", len(results))
+            tracing.set_attr(span, "lumen.confidence", round(confidence, 4))
+            return results, confidence
+
     def _retrieve(
-        self, query: str, k: int, mode: RetrievalMode, rerank: bool, rerank_weight: float
+        self,
+        query: str,
+        k: int,
+        mode: RetrievalMode,
+        rerank: bool,
+        rerank_weight: float,
+        query_vec: np.ndarray | None,
     ) -> list[ScoredChunk]:
         if len(self.store) == 0:
             return []
 
         if self.reranker is not None:
             pool_size = k * max(1, settings.rerank_pool_factor)
-            pool = self._first_stage(query, pool_size, mode, rerank, rerank_weight)
+            pool = self._first_stage(query, pool_size, mode, rerank, rerank_weight, query_vec)
             return self.reranker.rerank(query, pool, k)
 
-        return self._first_stage(query, k, mode, rerank, rerank_weight)
+        return self._first_stage(query, k, mode, rerank, rerank_weight, query_vec)
 
     def _first_stage(
         self,
@@ -112,19 +167,21 @@ class Retriever:
         mode: RetrievalMode,
         rerank: bool,
         rerank_weight: float,
+        query_vec: np.ndarray | None,
     ) -> list[ScoredChunk]:
         if mode == "bm25":
             return self._get_bm25().search(query, k)
 
+        if query_vec is None:
+            query_vec = embed_query(self.embedder, query)
+
         if mode == "hybrid":
             fetch = k * 3
-            query_vec = self.embedder.embed([query])[0]
             dense_list = self.store.search(query_vec, k=fetch)
             sparse_list = self._get_bm25().search(query, fetch)
             return reciprocal_rank_fusion([dense_list, sparse_list], k=k)
 
         # --- vector (default legacy path) ---
-        query_vec = self.embedder.embed([query])[0]
         pool = self.store.search(query_vec, k=k * 3 if rerank else k)
         if not rerank:
             return pool[:k]
@@ -134,3 +191,7 @@ class Retriever:
             sc.score = (1 - rerank_weight) * sc.score + rerank_weight * lex
         pool.sort(key=lambda s: s.score, reverse=True)
         return pool[:k]
+
+
+def _sigmoid(x: float) -> float:
+    return 1.0 / (1.0 + math.exp(-x))

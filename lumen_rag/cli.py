@@ -61,6 +61,8 @@ def ask(
     engine = RagEngine.load()
     result = engine.query(question, k=k, mode=mode)  # type: ignore[arg-type]
     typer.echo("\n" + result.text + "\n")
+    if result.confidence is not None:
+        typer.echo(f"Retrieval confidence: {result.confidence:.3f}" + (" (abstained)" if result.abstained else ""))
     typer.echo("Sources:")
     for c in result.citations:
         typer.echo(f"  [{c['n']}] {c['doc_id']} (score={c['score']})")
@@ -92,6 +94,11 @@ def run_answer_eval(
         "Works offline.",
     ),
     tau: float = typer.Option(0.6, help="With --claims: alignment score a chunk needs to ground a claim (0-1)."),
+    abstain_threshold: float | None = typer.Option(
+        None,
+        help="With --claims: refuse when retrieval confidence is below this "
+        "(defaults to LUMEN_ABSTAIN_THRESHOLD; unset means never refuse).",
+    ),
 ) -> None:
     """Judge generated answers (DeepEval), or with --claims attribute failures to retrieval vs generation."""
     engine = RagEngine.load()
@@ -101,7 +108,12 @@ def run_answer_eval(
         from .eval.claims import diagnose_claims
 
         claim_report = diagnose_claims(
-            engine.retriever, cases, k=k, mode=mode, tau=tau  # type: ignore[arg-type]
+            engine.retriever,
+            cases,
+            k=k,
+            mode=mode,  # type: ignore[arg-type]
+            tau=tau,
+            abstain_threshold=abstain_threshold if abstain_threshold is not None else settings.abstain_threshold,
         )
         typer.echo("\n" + claim_report.pretty() + "\n")
         typer.echo(json.dumps(claim_report.as_dict()))

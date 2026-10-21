@@ -20,7 +20,7 @@ from ..engine import RagEngine
 from ..eval import evaluate
 from ..eval.harness import load_cases
 from ..ingestion.loaders import _LOADERS, load_file
-from ..llm import answer_stream_async
+from ..llm import ABSTAIN_TEXT, answer_stream_async
 from ..retrieval import RetrievalMode, Retriever
 from .ratelimit import enforce
 
@@ -111,7 +111,12 @@ async def query(req: QueryRequest, request: Request) -> dict:
     if len(engine.store) == 0:
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
     result = await engine.aquery(req.question, k=req.k, mode=req.mode)
-    return {"answer": result.text, "citations": result.citations}
+    return {
+        "answer": result.text,
+        "citations": result.citations,
+        "abstained": result.abstained,
+        "confidence": result.confidence,
+    }
 
 
 def _load_upload(data: bytes, filename: str, suffix: str) -> dict:
@@ -225,12 +230,19 @@ async def query_stream(req: QueryRequest, request: Request) -> StreamingResponse
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
 
     # Retrieval can be CPU-bound or a network round trip: keep it off the event loop.
-    chunks = await asyncio.to_thread(engine.retriever.retrieve, req.question, k=req.k, mode=req.mode)
+    chunks, confidence, abstained = await asyncio.to_thread(engine.retrieve, req.question, req.k, req.mode)
 
     async def _sse() -> AsyncGenerator[str, None]:
+        if abstained:
+            yield f"data: {json.dumps({'token': ABSTAIN_TEXT})}\n\n"
+            done = {"done": True, "citations": [], "abstained": True, "confidence": confidence}
+            yield f"data: {json.dumps(done)}\n\n"
+            return
         async for token, citations in answer_stream_async(req.question, chunks):
             if citations is not None:
-                payload = json.dumps({"done": True, "citations": citations})
+                payload = json.dumps(
+                    {"done": True, "citations": citations, "abstained": False, "confidence": confidence}
+                )
             else:
                 payload = json.dumps({"token": token})
             yield f"data: {payload}\n\n"

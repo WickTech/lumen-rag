@@ -34,6 +34,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from ..llm import Answer, answer
+from ..llm import abstain as refusal
 from ..retrieval.retriever import RetrievalMode, Retriever
 from ..store import ScoredChunk
 from .harness import EvalCase
@@ -197,6 +198,7 @@ def diagnose_claims(
     answer_tau: float = 0.6,
     answer_fn: AnswerFn | None = None,
     aligner: Aligner | None = None,
+    abstain_threshold: float | None = None,
 ) -> ClaimReport:
     """Retrieve, answer and attribute for every case.
 
@@ -204,6 +206,9 @@ def diagnose_claims(
     is the share of the expected answer's content words the answer must contain to
     count as correct. Cases without ``relevant_doc_ids`` are treated as unanswerable
     only if ``answerable`` is False; an answerable case needs ``expected_answer``.
+
+    With ``abstain_threshold``, a case whose retrieval confidence is below it is
+    answered with the engine's refusal instead, as ``RagEngine.query`` would.
     """
     answer_fn = answer_fn or answer
     aligner = aligner or lexical_support
@@ -215,8 +220,16 @@ def diagnose_claims(
     n_answerable = n_unanswerable = abstained = n_claims = 0
 
     for case in cases:
-        chunks = retriever.retrieve(case.question, k=k, mode=mode)
-        generated = answer_fn(case.question, chunks)
+        confidence = None
+        if abstain_threshold is None:
+            chunks = retriever.retrieve(case.question, k=k, mode=mode)
+            generated = answer_fn(case.question, chunks)
+        else:
+            chunks, confidence = retriever.retrieve_with_confidence(case.question, k=k, mode=mode)
+            if confidence < abstain_threshold:
+                generated = refusal(confidence)
+            else:
+                generated = answer_fn(case.question, chunks)
         gold = set(case.relevant_doc_ids)
         retrieved_docs = []
         for sc in chunks:
@@ -252,6 +265,7 @@ def diagnose_claims(
             "category": case.category,
             "answer": generated.text,
             "abstained": abstain,
+            "confidence": None if confidence is None else round(confidence, 4),
             "retrieved_docs": retrieved_docs,
             "gold_docs": sorted(gold),
             "claims": claim_rows,
