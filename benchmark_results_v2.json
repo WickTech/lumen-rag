@@ -15,7 +15,7 @@
       "mrr": 0.6932,
       "ndcg@k": 0.685,
       "hit_rate": 0.7843,
-      "latency_ms": 0.7,
+      "latency_ms": 0.9,
       "by_category": {
         "direct": {
           "n": 42,
@@ -50,6 +50,8 @@
         "threshold": 0.2621,
         "auroc": 0.5287,
         "auroc_test": 0.576,
+        "auroc_near_miss": 0.5637,
+        "auroc_off_topic": 0.4677,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -139,6 +141,8 @@
         "threshold": 0.2621,
         "auroc": 0.5287,
         "auroc_test": 0.576,
+        "auroc_near_miss": 0.5637,
+        "auroc_off_topic": 0.4677,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -228,6 +232,8 @@
         "threshold": 0.2621,
         "auroc": 0.5287,
         "auroc_test": 0.576,
+        "auroc_near_miss": 0.5637,
+        "auroc_off_topic": 0.4677,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -272,5 +278,6 @@
         }
       }
     }
-  ]
+  ],
+  "answerability": null
 }

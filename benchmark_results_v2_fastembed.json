@@ -15,7 +15,7 @@
       "mrr": 0.9485,
       "ndcg@k": 0.9426,
       "hit_rate": 0.9935,
-      "latency_ms": 19.4,
+      "latency_ms": 11.0,
       "by_category": {
         "direct": {
           "n": 42,
@@ -50,6 +50,8 @@
         "threshold": 0.7398,
         "auroc": 0.74,
         "auroc_test": 0.7534,
+        "auroc_near_miss": 0.6917,
+        "auroc_off_topic": 0.8241,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -104,7 +106,7 @@
       "mrr": 0.8779,
       "ndcg@k": 0.8668,
       "hit_rate": 0.9412,
-      "latency_ms": 0.8,
+      "latency_ms": 0.7,
       "by_category": {
         "direct": {
           "n": 42,
@@ -139,6 +141,8 @@
         "threshold": 0.7398,
         "auroc": 0.74,
         "auroc_test": 0.7534,
+        "auroc_near_miss": 0.6917,
+        "auroc_off_topic": 0.8241,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -193,7 +197,7 @@
       "mrr": 0.9149,
       "ndcg@k": 0.9138,
       "hit_rate": 0.9935,
-      "latency_ms": 15.3,
+      "latency_ms": 12.0,
       "by_category": {
         "direct": {
           "n": 42,
@@ -228,6 +232,8 @@
         "threshold": 0.7398,
         "auroc": 0.74,
         "auroc_test": 0.7534,
+        "auroc_near_miss": 0.6917,
+        "auroc_off_topic": 0.8241,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -282,7 +288,7 @@
       "mrr": 0.9597,
       "ndcg@k": 0.9538,
       "hit_rate": 0.9804,
-      "latency_ms": 488.3,
+      "latency_ms": 396.3,
       "by_category": {
         "direct": {
           "n": 42,
@@ -317,6 +323,8 @@
         "threshold": 0.9836,
         "auroc": 0.8164,
         "auroc_test": 0.8001,
+        "auroc_near_miss": 0.7918,
+        "auroc_off_topic": 0.8591,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -371,7 +379,7 @@
       "mrr": 0.9695,
       "ndcg@k": 0.9647,
       "hit_rate": 0.9935,
-      "latency_ms": 488.5,
+      "latency_ms": 426.8,
       "by_category": {
         "direct": {
           "n": 42,
@@ -406,6 +414,8 @@
         "threshold": 0.9836,
         "auroc": 0.817,
         "auroc_test": 0.8018,
+        "auroc_near_miss": 0.7926,
+        "auroc_off_topic": 0.8593,
         "n_dev": 109,
         "n_test": 107,
         "n_unanswerable_test": 31,
@@ -450,5 +460,175 @@
         }
       }
     }
-  ]
+  ],
+  "answerability": {
+    "model": "onnx-community/roberta-base-squad2-ONNX",
+    "config": "vector-only",
+    "ms_per_query_with_retrieval": 435.3,
+    "signals": {
+      "retrieval similarity": {
+        "threshold": 0.7398,
+        "auroc": 0.74,
+        "auroc_test": 0.7534,
+        "auroc_near_miss": 0.6917,
+        "auroc_off_topic": 0.8241,
+        "n_dev": 109,
+        "n_test": 107,
+        "n_unanswerable_test": 31,
+        "dev": {
+          "threshold": 0.7398,
+          "refusal_rate_unanswerable": 0.6875,
+          "false_refusal_rate": 0.2987012987012987,
+          "answered_with_evidence": 0.7012987012987013,
+          "correct_outcome_rate": 0.6972477064220184
+        },
+        "test": {
+          "threshold": 0.7398,
+          "refusal_rate_unanswerable": 0.7096774193548387,
+          "false_refusal_rate": 0.2894736842105263,
+          "answered_with_evidence": 0.7105263157894737,
+          "correct_outcome_rate": 0.7102803738317757
+        },
+        "conservative": {
+          "max_false_refusal": 0.05,
+          "threshold": 0.6642,
+          "dev": {
+            "threshold": 0.6642,
+            "refusal_rate_unanswerable": 0.28125,
+            "false_refusal_rate": 0.03896103896103896,
+            "answered_with_evidence": 0.961038961038961,
+            "correct_outcome_rate": 0.7614678899082569
+          },
+          "test": {
+            "threshold": 0.6642,
+            "refusal_rate_unanswerable": 0.25806451612903225,
+            "false_refusal_rate": 0.02631578947368421,
+            "answered_with_evidence": 0.9605263157894737,
+            "correct_outcome_rate": 0.7570093457943925
+          }
+        },
+        "no_abstention_test": {
+          "threshold": -Infinity,
+          "refusal_rate_unanswerable": 0.0,
+          "false_refusal_rate": 0.0,
+          "answered_with_evidence": 0.9868421052631579,
+          "correct_outcome_rate": 0.7009345794392523
+        }
+      },
+      "reader": {
+        "threshold": 2.138,
+        "auroc": 0.8529,
+        "auroc_test": 0.8795,
+        "auroc_near_miss": 0.8047,
+        "auroc_off_topic": 0.9366,
+        "n_dev": 109,
+        "n_test": 107,
+        "n_unanswerable_test": 31,
+        "dev": {
+          "threshold": 2.138,
+          "refusal_rate_unanswerable": 0.875,
+          "false_refusal_rate": 0.36363636363636365,
+          "answered_with_evidence": 0.6363636363636364,
+          "correct_outcome_rate": 0.7064220183486238
+        },
+        "test": {
+          "threshold": 2.138,
+          "refusal_rate_unanswerable": 0.9032258064516129,
+          "false_refusal_rate": 0.27631578947368424,
+          "answered_with_evidence": 0.7236842105263158,
+          "correct_outcome_rate": 0.7757009345794392
+        },
+        "conservative": {
+          "max_false_refusal": 0.05,
+          "threshold": -3.6171,
+          "dev": {
+            "threshold": -3.6171,
+            "refusal_rate_unanswerable": 0.375,
+            "false_refusal_rate": 0.03896103896103896,
+            "answered_with_evidence": 0.961038961038961,
+            "correct_outcome_rate": 0.7889908256880734
+          },
+          "test": {
+            "threshold": -3.6171,
+            "refusal_rate_unanswerable": 0.41935483870967744,
+            "false_refusal_rate": 0.02631578947368421,
+            "answered_with_evidence": 0.9605263157894737,
+            "correct_outcome_rate": 0.8037383177570093
+          }
+        },
+        "no_abstention_test": {
+          "threshold": -Infinity,
+          "refusal_rate_unanswerable": 0.0,
+          "false_refusal_rate": 0.0,
+          "answered_with_evidence": 0.9868421052631579,
+          "correct_outcome_rate": 0.7009345794392523
+        }
+      },
+      "similarity gate, then reader": {
+        "threshold": 1.4466,
+        "auroc": 0.8582,
+        "auroc_test": 0.8807,
+        "auroc_near_miss": 0.8051,
+        "auroc_off_topic": 0.9507,
+        "n_dev": 109,
+        "n_test": 107,
+        "n_unanswerable_test": 31,
+        "dev": {
+          "threshold": 1.4466,
+          "refusal_rate_unanswerable": 0.875,
+          "false_refusal_rate": 0.35064935064935066,
+          "answered_with_evidence": 0.6493506493506493,
+          "correct_outcome_rate": 0.7155963302752294
+        },
+        "test": {
+          "threshold": 1.4466,
+          "refusal_rate_unanswerable": 0.8387096774193549,
+          "false_refusal_rate": 0.25,
+          "answered_with_evidence": 0.75,
+          "correct_outcome_rate": 0.7757009345794392
+        },
+        "conservative": {
+          "max_false_refusal": 0.05,
+          "threshold": -5.6719,
+          "dev": {
+            "threshold": -5.6719,
+            "refusal_rate_unanswerable": 0.375,
+            "false_refusal_rate": 0.03896103896103896,
+            "answered_with_evidence": 0.961038961038961,
+            "correct_outcome_rate": 0.7889908256880734
+          },
+          "test": {
+            "threshold": -5.6719,
+            "refusal_rate_unanswerable": 0.2903225806451613,
+            "false_refusal_rate": 0.02631578947368421,
+            "answered_with_evidence": 0.9605263157894737,
+            "correct_outcome_rate": 0.7663551401869159
+          }
+        },
+        "no_abstention_test": {
+          "threshold": -Infinity,
+          "refusal_rate_unanswerable": 0.0,
+          "false_refusal_rate": 0.0,
+          "answered_with_evidence": 0.9868421052631579,
+          "correct_outcome_rate": 0.7009345794392523
+        }
+      }
+    },
+    "squad_threshold_0_test": {
+      "reader": {
+        "threshold": 0.0,
+        "refusal_rate_unanswerable": 0.7741935483870968,
+        "false_refusal_rate": 0.19736842105263158,
+        "answered_with_evidence": 0.7894736842105263,
+        "correct_outcome_rate": 0.7850467289719626
+      },
+      "similarity gate, then reader": {
+        "threshold": 0.0,
+        "refusal_rate_unanswerable": 0.8387096774193549,
+        "false_refusal_rate": 0.19736842105263158,
+        "answered_with_evidence": 0.7894736842105263,
+        "correct_outcome_rate": 0.8037383177570093
+      }
+    }
+  }
 }
