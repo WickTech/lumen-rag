@@ -21,6 +21,9 @@ from secrets import compare_digest
 # read at import. The threshold is the calibrated value from scripts/benchmark.py.
 os.environ.setdefault("LUMEN_EMBEDDER", "fastembed")
 os.environ.setdefault("LUMEN_ABSTAIN_THRESHOLD", "0.66")
+# Second gate: a SQuAD 2.0 reader refuses near misses that similarity lets through.
+os.environ.setdefault("LUMEN_READER", "onnx-community/roberta-base-squad2-ONNX")
+os.environ.setdefault("LUMEN_READER_THRESHOLD", "-3.5")
 
 import importlib
 
@@ -128,7 +131,8 @@ def ask(question: str, k: int, mode: str, request: gr.Request):
     lines = []
     if result.confidence is not None:
         verdict = "below threshold, abstained" if result.abstained else "answered"
-        lines.append(f"Retrieval confidence {result.confidence:.3f} ({verdict})")
+        reader = "" if result.answerability is None else f", reader answerability {result.answerability:.1f}"
+        lines.append(f"Retrieval confidence {result.confidence:.3f}{reader} ({verdict})")
     lines += [
         f"[{c['n']}] {c['doc_id']} — {c['source']} (score={c['score']:.3f})"
         for c in result.citations

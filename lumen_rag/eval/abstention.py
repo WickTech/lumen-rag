@@ -22,6 +22,7 @@ from itertools import pairwise
 
 import numpy as np
 
+from ..reader import ExtractiveReader
 from ..retrieval import Retriever
 from ..retrieval.retriever import RetrievalMode
 from .harness import EvalCase
@@ -35,20 +36,45 @@ class ScoredCase:
     confidence: float
     # Answerable cases: a relevant doc is in the top k. None for unanswerable ones.
     hit: bool | None
+    near_miss: bool = False
 
 
 def score_cases(
-    retriever: Retriever, cases: list[EvalCase], k: int = 5, mode: RetrievalMode = "hybrid"
+    retriever: Retriever,
+    cases: list[EvalCase],
+    k: int = 5,
+    mode: RetrievalMode = "hybrid",
+    reader: ExtractiveReader | None = None,
 ) -> list[ScoredCase]:
+    """Confidence per case: retrieval confidence, or with ``reader`` its answerability."""
     scored = []
     for case in cases:
-        results, confidence = retriever.retrieve_with_confidence(case.question, k=k, mode=mode)
+        if reader is None:
+            results, confidence = retriever.retrieve_with_confidence(case.question, k=k, mode=mode)
+        else:
+            results = retriever.retrieve(case.question, k=k, mode=mode)
+            confidence = reader.read(case.question, results).answerability
         hit = None
         if case.answerable:
             relevant = set(case.relevant_doc_ids)
             hit = any(r.chunk.doc_id in relevant for r in results)
-        scored.append(ScoredCase(case.question, case.category, case.answerable, float(confidence), hit))
+        scored.append(
+            ScoredCase(case.question, case.category, case.answerable, float(confidence), hit, case.near_miss)
+        )
     return scored
+
+
+def gate_together(first: list[ScoredCase], first_threshold: float, second: list[ScoredCase]) -> list[ScoredCase]:
+    """Cases scored by ``second``, but already refused where ``first`` is below its threshold.
+
+    Models a two-stage gate (retrieval similarity, then the reader): thresholds
+    swept on the result apply to the second signal only.
+    """
+    out = []
+    for a, b in zip(first, second, strict=True):
+        conf = b.confidence if a.confidence >= first_threshold else float("-inf")
+        out.append(ScoredCase(b.question, b.category, b.answerable, conf, b.hit, b.near_miss))
+    return out
 
 
 def outcome(scored: list[ScoredCase], threshold: float) -> dict:
@@ -82,8 +108,11 @@ def auroc(scored: list[ScoredCase]) -> float:
     neg = np.array([s.confidence for s in scored if not s.answerable])
     if not len(pos) or not len(neg):
         return float("nan")
-    diff = pos[:, None] - neg[None, :]
-    return float(((diff > 0).sum() + 0.5 * (diff == 0).sum()) / diff.size)
+    # Compare rather than subtract: refused-by-an-earlier-gate cases score -inf, and
+    # -inf - -inf is nan, which would drop those ties instead of counting them half.
+    greater = pos[:, None] > neg[None, :]
+    equal = pos[:, None] == neg[None, :]
+    return float((greater.sum() + 0.5 * equal.sum()) / greater.size)
 
 
 def best_threshold(scored: list[ScoredCase]) -> float:
@@ -149,6 +178,9 @@ def calibrate(scored: list[ScoredCase], max_false_refusal: float = 0.05) -> dict
         "threshold": round(threshold, 4),
         "auroc": round(auroc(scored), 4),
         "auroc_test": round(auroc(test), 4),
+        # Full set: answerable vs each kind of unanswerable question.
+        "auroc_near_miss": round(auroc([s for s in scored if s.answerable or s.near_miss]), 4),
+        "auroc_off_topic": round(auroc([s for s in scored if s.answerable or not s.near_miss]), 4),
         "n_dev": len(dev),
         "n_test": len(test),
         "n_unanswerable_test": sum(not s.answerable for s in test),

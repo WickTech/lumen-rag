@@ -26,6 +26,8 @@ class EvalCase:
     # False for questions the corpus cannot answer. They have no relevant docs, so
     # they are excluded from retrieval metrics and only counted (``n_unanswerable``).
     answerable: bool = True
+    # Unanswerable, but on-topic for a document that exists (the fact is absent).
+    near_miss: bool = False
 
 
 @dataclass
@@ -96,6 +98,7 @@ def load_cases(path: str | Path) -> list[EvalCase]:
                 obj.get("expected_answer"),
                 obj.get("category"),
                 bool(obj.get("answerable", True)),
+                bool(obj.get("near_miss", False)),
             )
         )
     return cases

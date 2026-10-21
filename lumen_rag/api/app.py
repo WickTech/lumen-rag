@@ -96,6 +96,8 @@ def health() -> dict:
         "embedder": type(emb).__name__,
         "embedding_model": getattr(emb, "model_name", None),
         "abstain_threshold": settings.abstain_threshold,
+        "reader": settings.reader_model or None,
+        "reader_threshold": settings.reader_threshold if settings.reader_model else None,
     }
 
 
@@ -124,6 +126,7 @@ async def query(req: QueryRequest, request: Request) -> dict:
         "citations": result.citations,
         "abstained": result.abstained,
         "confidence": result.confidence,
+        "answerability": result.answerability,
     }
 
 
@@ -238,18 +241,32 @@ async def query_stream(req: QueryRequest, request: Request) -> StreamingResponse
         raise HTTPException(status_code=409, detail="Index is empty. Ingest documents first.")
 
     # Retrieval can be CPU-bound or a network round trip: keep it off the event loop.
-    chunks, confidence, abstained = await asyncio.to_thread(engine.retrieve, req.question, req.k, req.mode)
+    r = await asyncio.to_thread(engine.retrieve, req.question, req.k, req.mode)
+    answerability = r.reading.answerability if r.reading else None
 
     async def _sse() -> AsyncGenerator[str, None]:
-        if abstained:
+        if r.abstained:
             yield f"data: {json.dumps({'token': ABSTAIN_TEXT})}\n\n"
-            done = {"done": True, "citations": [], "abstained": True, "confidence": confidence}
+            done = {
+                "done": True,
+                "citations": [],
+                "abstained": True,
+                "confidence": r.confidence,
+                "answerability": answerability,
+            }
             yield f"data: {json.dumps(done)}\n\n"
             return
-        async for token, citations in answer_stream_async(req.question, chunks):
+        reading = r.reading if settings.reader_answers else None
+        async for token, citations in answer_stream_async(req.question, r.chunks, reading):
             if citations is not None:
                 payload = json.dumps(
-                    {"done": True, "citations": citations, "abstained": False, "confidence": confidence}
+                    {
+                        "done": True,
+                        "citations": citations,
+                        "abstained": False,
+                        "confidence": r.confidence,
+                        "answerability": answerability,
+                    }
                 )
             else:
                 payload = json.dumps({"token": token})

@@ -150,6 +150,8 @@ def test_auroc_perfect_and_chance():
     assert auroc(perfect) == 1.0
     tied = [_case("a", True, 0.5), _case("b", False, 0.5)]
     assert auroc(tied) == 0.5
+    gated = [_case("a", True, float("-inf")), _case("b", False, float("-inf"))]
+    assert auroc(gated) == 0.5
 
 
 def test_outcome_rates():

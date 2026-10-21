@@ -39,6 +39,8 @@ loaders = ["pypdf>=4.0", "python-docx>=1.1"]
 docling = ["docling>=2.0"]
 rerank = ["fastembed>=0.5"]
 embed = ["fastembed>=0.5"]
+# Extractive answerability reader (ONNX; no torch). fastembed already pulls these in.
+reader = ["onnxruntime>=1.17", "tokenizers>=0.15", "huggingface-hub>=0.20"]
 tracing = ["opentelemetry-sdk>=1.27", "opentelemetry-exporter-otlp-proto-http>=1.27"]
 pgvector = ["psycopg[binary]>=3.2"]
 answer-eval = ["deepeval>=3.0", "openai>=1.55"]

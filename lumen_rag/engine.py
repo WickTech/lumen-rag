@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import tracing
@@ -9,8 +10,25 @@ from .config import settings
 from .embeddings import get_embedder
 from .ingestion import ingest_documents
 from .llm import Answer, abstain, answer, answer_async
+from .reader import Reading, get_reader
 from .retrieval import RetrievalMode, Retriever
 from .store import ScoredChunk, Store, VectorStore, get_store
+
+
+@dataclass
+class Retrieval:
+    chunks: list[ScoredChunk]
+    # Retrieval confidence; None unless LUMEN_ABSTAIN_THRESHOLD is set.
+    confidence: float | None
+    # Below the retrieval or the reader threshold: refuse instead of answering.
+    abstained: bool
+    # The reader's verdict; None unless LUMEN_READER is set.
+    reading: Reading | None = None
+
+    def refusal(self) -> Answer:
+        result = abstain(self.confidence)
+        result.answerability = self.reading.answerability if self.reading else None
+        return result
 
 
 class RagEngine:
@@ -26,43 +44,69 @@ class RagEngine:
         self.retriever._bm25 = None  # invalidate cached BM25 index
         return len(self.store)
 
-    def retrieve(
-        self, question: str, k: int = 5, mode: RetrievalMode = "hybrid"
-    ) -> tuple[list[ScoredChunk], float | None, bool]:
+    def retrieve(self, question: str, k: int = 5, mode: RetrievalMode = "hybrid") -> Retrieval:
         """Retrieve context and decide whether to abstain.
 
-        Returns ``(chunks, confidence, abstained)``. With ``LUMEN_ABSTAIN_THRESHOLD``
-        unset this is plain retrieval: confidence is None and it never abstains.
+        Two optional gates, cheapest first. ``LUMEN_ABSTAIN_THRESHOLD`` refuses when
+        the question is not similar enough to anything indexed; ``LUMEN_READER`` reads
+        the retrieved passages and refuses when none of them contains an answer.
+        With neither set this is plain retrieval and never abstains.
         """
         threshold = settings.abstain_threshold
         if threshold is None:
-            return self.retriever.retrieve(question, k=k, mode=mode), None, False
-        chunks, confidence = self.retriever.retrieve_with_confidence(question, k=k, mode=mode)
-        return chunks, confidence, confidence < threshold
+            chunks, confidence = self.retriever.retrieve(question, k=k, mode=mode), None
+        else:
+            chunks, confidence = self.retriever.retrieve_with_confidence(question, k=k, mode=mode)
+            if confidence < threshold:
+                return Retrieval(chunks, confidence, True)
+        reader = get_reader()
+        if reader is None or not chunks:
+            return Retrieval(chunks, confidence, False)
+        with tracing.span("lumen.read", **{"lumen.reader": reader.model_id}) as span:
+            reading = reader.read(question, chunks)
+            tracing.set_attr(span, "lumen.answerability", round(reading.answerability, 3))
+        return Retrieval(chunks, confidence, reading.answerability < settings.reader_threshold, reading)
+
+    @staticmethod
+    def _answer_reading(r: Retrieval) -> Reading | None:
+        # The reader always gates; its span shapes the answer only when asked to.
+        return r.reading if settings.reader_answers else None
+
+    def _finish(self, r: Retrieval, result: Answer, span) -> Answer:
+        result.confidence = r.confidence
+        if r.reading is not None:
+            result.answerability = r.reading.answerability
+        tracing.set_attr(span, "lumen.chunks", len(r.chunks))
+        tracing.set_attr(span, "lumen.abstained", r.abstained)
+        return result
+
+    def answer_with_context(
+        self, question: str, k: int = 5, mode: RetrievalMode = "hybrid"
+    ) -> tuple[list[ScoredChunk], Answer]:
+        """``query`` that also returns the retrieved chunks (for evaluation)."""
+        with tracing.span("lumen.query", **self._query_attrs(question, k, mode)) as span:
+            r = self.retrieve(question, k=k, mode=mode)
+            result = r.refusal() if r.abstained else answer(question, r.chunks, reading=self._answer_reading(r))
+            return r.chunks, self._finish(r, result, span)
 
     def query(self, question: str, k: int = 5, mode: RetrievalMode = "hybrid") -> Answer:
-        with tracing.span("lumen.query", **self._query_attrs(question, k, mode)) as span:
-            chunks, confidence, abstained = self.retrieve(question, k=k, mode=mode)
-            result = abstain(confidence) if abstained else answer(question, chunks)
-            result.confidence = confidence
-            tracing.set_attr(span, "lumen.chunks", len(chunks))
-            tracing.set_attr(span, "lumen.abstained", abstained)
-            return result
+        return self.answer_with_context(question, k=k, mode=mode)[1]
 
     async def aquery(self, question: str, k: int = 5, mode: RetrievalMode = "hybrid") -> Answer:
         """``query`` for use inside an event loop.
 
-        Retrieval (CPU, or a database / embedding-API round trip) runs in a worker
-        thread; the model call is awaited on the async client. Neither blocks the loop.
+        Retrieval (CPU, or a database / embedding-API round trip) and reading run in a
+        worker thread; the model call is awaited on the async client. Neither blocks the loop.
         """
         with tracing.span("lumen.query", **self._query_attrs(question, k, mode)) as span:
             # to_thread copies the context, so retrieval spans stay children of lumen.query.
-            chunks, confidence, abstained = await asyncio.to_thread(self.retrieve, question, k, mode)
-            result = abstain(confidence) if abstained else await answer_async(question, chunks)
-            result.confidence = confidence
-            tracing.set_attr(span, "lumen.chunks", len(chunks))
-            tracing.set_attr(span, "lumen.abstained", abstained)
-            return result
+            r = await asyncio.to_thread(self.retrieve, question, k, mode)
+            result = (
+                r.refusal()
+                if r.abstained
+                else await answer_async(question, r.chunks, reading=self._answer_reading(r))
+            )
+            return self._finish(r, result, span)
 
     @staticmethod
     def _query_attrs(question: str, k: int, mode: str) -> dict:

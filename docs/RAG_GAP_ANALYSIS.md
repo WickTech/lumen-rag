@@ -5,6 +5,20 @@ Primary sources were fetched for Anthropic's Contextual Retrieval post and the S
 Everything else comes from search summaries of secondary sources (vendor blogs, career guides) and is marked
 as such. Hiring claims are anecdotal; no source gave data on what actually earns interviews.
 
+## Status (updated 2026-10-21)
+
+| Gap | State | Where |
+|---|---|---|
+| 1. Real-embedder results | **Done** for local bge-small (vector MRR 0.69 → 0.95). The OpenAI row is wired up but not measured (no API credit). | #10, README Benchmarks |
+| 2. Public benchmark | Open | — |
+| 3. Abstention | **Done**: similarity gate (#10), then an extractive SQuAD 2.0 reader gate that catches near misses (#12). AUROC 0.75 → 0.88; NIST AI RMF PDF spot check 10/10. | README Abstention, `scripts/real_pdf_check.py` |
+| 4. LLM-generated answer results | Open (needs an API key with credit) | — |
+| 5. Query-side intelligence | In progress: query decomposition for multi-hop questions | — |
+| 16. README test count | **Done** | #9 |
+| Demo mismatch (Space vs README GIF) | **Done**: the Space serves the README's UI | #11 |
+
+Gaps 6 to 15 are unchanged.
+
 ## 1. What the research says a RAG pipeline needs
 
 | Stage | Expected capability | Evidence |
