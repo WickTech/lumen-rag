@@ -1569,6 +1569,12 @@ pdf = [
 pgvector = [
     { name = "psycopg", extra = ["binary"] },
 ]
+reader = [
+    { name = "huggingface-hub" },
+    { name = "onnxruntime", version = "1.23.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "onnxruntime", version = "1.31.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "tokenizers" },
+]
 rerank = [
     { name = "fastembed" },
 ]
@@ -1585,7 +1591,9 @@ requires-dist = [
     { name = "fastembed", marker = "extra == 'embed'", specifier = ">=0.5" },
     { name = "fastembed", marker = "extra == 'rerank'", specifier = ">=0.5" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "huggingface-hub", marker = "extra == 'reader'", specifier = ">=0.20" },
     { name = "numpy", specifier = ">=1.26" },
+    { name = "onnxruntime", marker = "extra == 'reader'", specifier = ">=1.17" },
     { name = "openai", marker = "extra == 'answer-eval'", specifier = ">=1.55" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.55" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'tracing'", specifier = ">=1.27" },
@@ -1602,10 +1610,11 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.12" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.17.0" },
     { name = "starlette", specifier = ">=1.3.1" },
+    { name = "tokenizers", marker = "extra == 'reader'", specifier = ">=0.15" },
     { name = "typer", specifier = ">=0.13" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
-provides-extras = ["openai", "pdf", "docx", "loaders", "docling", "rerank", "embed", "tracing", "pgvector", "answer-eval", "dev"]
+provides-extras = ["openai", "pdf", "docx", "loaders", "docling", "rerank", "embed", "reader", "tracing", "pgvector", "answer-eval", "dev"]
 
 [[package]]
 name = "lxml"

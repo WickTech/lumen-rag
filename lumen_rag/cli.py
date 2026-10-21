@@ -97,7 +97,7 @@ def run_answer_eval(
     abstain_threshold: float | None = typer.Option(
         None,
         help="With --claims: refuse when retrieval confidence is below this "
-        "(defaults to LUMEN_ABSTAIN_THRESHOLD; unset means never refuse).",
+        "(overrides LUMEN_ABSTAIN_THRESHOLD; LUMEN_READER also applies).",
     ),
 ) -> None:
     """Judge generated answers (DeepEval), or with --claims attribute failures to retrieval vs generation."""
@@ -107,13 +107,16 @@ def run_answer_eval(
     if claims:
         from .eval.claims import diagnose_claims
 
+        if abstain_threshold is not None:
+            settings.abstain_threshold = abstain_threshold
+        # The engine's own path, so both abstention gates and reader answers are measured.
         claim_report = diagnose_claims(
             engine.retriever,
             cases,
             k=k,
             mode=mode,  # type: ignore[arg-type]
             tau=tau,
-            abstain_threshold=abstain_threshold if abstain_threshold is not None else settings.abstain_threshold,
+            pipeline=lambda q: engine.answer_with_context(q, k=k, mode=mode),  # type: ignore[arg-type]
         )
         typer.echo("\n" + claim_report.pretty() + "\n")
         typer.echo(json.dumps(claim_report.as_dict()))

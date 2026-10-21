@@ -16,10 +16,14 @@ import asyncio
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from . import tracing
 from .config import settings
 from .store import ScoredChunk
+
+if TYPE_CHECKING:
+    from .reader import Reading
 
 SYSTEM_PROMPT = (
     "You are a precise assistant. Answer the question using ONLY the numbered "
@@ -41,6 +45,8 @@ class Answer:
     abstained: bool = False
     # Retrieval confidence, set only when abstention is enabled.
     confidence: float | None = None
+    # Reader answerability (best span minus no-answer score), set only with LUMEN_READER.
+    answerability: float | None = None
 
 
 def abstain(confidence: float) -> Answer:
@@ -70,8 +76,11 @@ def _messages(question: str, chunks: list[ScoredChunk]) -> list[dict]:
     ]
 
 
-def _offline_text(chunks: list[ScoredChunk]) -> str:
-    # Extractive fallback: surface the best passages with markers.
+def _offline_text(chunks: list[ScoredChunk], reading: Reading | None = None) -> str:
+    # With a reader, answer with the sentence holding the extracted span.
+    if reading is not None and reading.sentence and reading.chunk_index is not None:
+        return f"(offline extractive answer) {reading.sentence} [{reading.chunk_index + 1}]"
+    # Otherwise surface the best passages with markers.
     body = " ".join(f"{c.chunk.text} [{i + 1}]" for i, c in enumerate(chunks[:2]))
     return f"(offline extractive answer) {body}"
 
@@ -106,7 +115,7 @@ def _record_usage(span, usage) -> None:
     tracing.set_attr(span, "gen_ai.usage.output_tokens", getattr(usage, "completion_tokens", None))
 
 
-def answer(question: str, chunks: list[ScoredChunk]) -> Answer:
+def answer(question: str, chunks: list[ScoredChunk], reading: Reading | None = None) -> Answer:
     if not chunks:
         return Answer(_NO_CONTEXT, [])
 
@@ -115,7 +124,7 @@ def answer(question: str, chunks: list[ScoredChunk]) -> Answer:
         "lumen.answer", **{"lumen.offline": settings.offline, "lumen.context_chunks": len(chunks)}
     ) as span:
         if settings.offline:
-            text = _offline_text(chunks)
+            text = _offline_text(chunks, reading)
         else:
             span.set_attribute("gen_ai.request.model", settings.chat_model)
             resp = _client().chat.completions.create(
@@ -128,7 +137,7 @@ def answer(question: str, chunks: list[ScoredChunk]) -> Answer:
     return Answer(text, citations)
 
 
-async def answer_async(question: str, chunks: list[ScoredChunk]) -> Answer:
+async def answer_async(question: str, chunks: list[ScoredChunk], reading: Reading | None = None) -> Answer:
     """``answer`` without blocking the event loop."""
     if not chunks:
         return Answer(_NO_CONTEXT, [])
@@ -138,7 +147,7 @@ async def answer_async(question: str, chunks: list[ScoredChunk]) -> Answer:
         "lumen.answer", **{"lumen.offline": settings.offline, "lumen.context_chunks": len(chunks)}
     ) as span:
         if settings.offline:
-            text = _offline_text(chunks)
+            text = _offline_text(chunks, reading)
         else:
             span.set_attribute("gen_ai.request.model", settings.chat_model)
             resp = await _async_client().chat.completions.create(
@@ -151,7 +160,9 @@ async def answer_async(question: str, chunks: list[ScoredChunk]) -> Answer:
     return Answer(text, citations)
 
 
-def answer_stream(question: str, chunks: list[ScoredChunk]) -> Iterator[tuple[str, list | None]]:
+def answer_stream(
+    question: str, chunks: list[ScoredChunk], reading: Reading | None = None
+) -> Iterator[tuple[str, list | None]]:
     """Yield (token: str, citations: list | None) tuples.
 
     The final tuple carries citations; all prior tuples have citations=None.
@@ -165,7 +176,7 @@ def answer_stream(question: str, chunks: list[ScoredChunk]) -> Iterator[tuple[st
     citations = _citations(chunks)
 
     if settings.offline:
-        for word in _offline_text(chunks).split(" "):
+        for word in _offline_text(chunks, reading).split(" "):
             yield (word + " ", None)
         yield ("", citations)
         return
@@ -181,7 +192,7 @@ def answer_stream(question: str, chunks: list[ScoredChunk]) -> Iterator[tuple[st
 
 
 async def answer_stream_async(
-    question: str, chunks: list[ScoredChunk]
+    question: str, chunks: list[ScoredChunk], reading: Reading | None = None
 ) -> AsyncIterator[tuple[str, list | None]]:
     """Async twin of ``answer_stream``: the same (token, citations) tuples, never blocking the loop."""
     if not chunks:
@@ -198,7 +209,7 @@ async def answer_stream_async(
     n_chars = 0
     try:
         if settings.offline:
-            for word in _offline_text(chunks).split(" "):
+            for word in _offline_text(chunks, reading).split(" "):
                 n_chars += len(word) + 1
                 yield (word + " ", None)
                 await asyncio.sleep(0)  # let other requests run between tokens

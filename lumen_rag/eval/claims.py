@@ -41,6 +41,8 @@ from .harness import EvalCase
 
 Aligner = Callable[[str, str], float]
 AnswerFn = Callable[[str, list[ScoredChunk]], Answer]
+# question -> (retrieved chunks, answer); e.g. RagEngine.answer_with_context with its gates.
+PipelineFn = Callable[[str], tuple[list[ScoredChunk], Answer]]
 
 CLAIM_LABELS = ("supported", "distractor", "unsupported")
 OUTCOMES = ("ok", "retrieval-miss", "generation-error")
@@ -199,6 +201,7 @@ def diagnose_claims(
     answer_fn: AnswerFn | None = None,
     aligner: Aligner | None = None,
     abstain_threshold: float | None = None,
+    pipeline: PipelineFn | None = None,
 ) -> ClaimReport:
     """Retrieve, answer and attribute for every case.
 
@@ -209,6 +212,8 @@ def diagnose_claims(
 
     With ``abstain_threshold``, a case whose retrieval confidence is below it is
     answered with the engine's refusal instead, as ``RagEngine.query`` would.
+    ``pipeline`` replaces retrieval and answering altogether, e.g. with the engine's
+    own path including the reader (``retriever`` is then unused).
     """
     answer_fn = answer_fn or answer
     aligner = aligner or lexical_support
@@ -220,8 +225,11 @@ def diagnose_claims(
     n_answerable = n_unanswerable = abstained = n_claims = 0
 
     for case in cases:
-        confidence = None
-        if abstain_threshold is None:
+        confidence = answerability = None
+        if pipeline is not None:
+            chunks, generated = pipeline(case.question)
+            confidence, answerability = generated.confidence, generated.answerability
+        elif abstain_threshold is None:
             chunks = retriever.retrieve(case.question, k=k, mode=mode)
             generated = answer_fn(case.question, chunks)
         else:
@@ -266,6 +274,7 @@ def diagnose_claims(
             "answer": generated.text,
             "abstained": abstain,
             "confidence": None if confidence is None else round(confidence, 4),
+            "answerability": None if answerability is None else round(answerability, 3),
             "retrieved_docs": retrieved_docs,
             "gold_docs": sorted(gold),
             "claims": claim_rows,

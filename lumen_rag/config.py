@@ -23,6 +23,16 @@ class Settings:
     abstain_threshold: float | None = (
         float(os.environ["LUMEN_ABSTAIN_THRESHOLD"]) if os.getenv("LUMEN_ABSTAIN_THRESHOLD") else None
     )
+    # Extractive reader (SQuAD 2.0 model, ONNX) that checks whether the retrieved
+    # passages contain an answer; e.g. "onnx-community/tinyroberta-squad2-ONNX".
+    # Empty disables it (needs the [reader] extra when set).
+    reader_model: str = os.getenv("LUMEN_READER", "")
+    reader_file: str = os.getenv("LUMEN_READER_FILE", "onnx/model_quantized.onnx")
+    # Refuse when the reader's answerability (best span minus no-answer score) is below this.
+    reader_threshold: float = float(os.getenv("LUMEN_READER_THRESHOLD", "0"))
+    # "1" answers offline with the sentence holding the reader's span instead of the
+    # top passages: more precise, but wrong on multi-hop questions (see README).
+    reader_answers: bool = os.getenv("LUMEN_READER_ANSWERS", "") == "1"
     chat_model: str = os.getenv("CHAT_MODEL", "gpt-4o-mini")
     index_dir: str = os.getenv("LUMEN_INDEX_DIR", ".lumen_index")
     admin_key: str = os.getenv("ADMIN_KEY", "")

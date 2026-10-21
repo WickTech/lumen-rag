@@ -17,6 +17,8 @@ os.environ.pop("OPENAI_API_KEY", None)
 config.settings.openai_api_key = ""
 config.settings.embedder = "auto"
 config.settings.abstain_threshold = None
+config.settings.reader_model = ""
+config.settings.reader_answers = False
 
 
 @pytest.fixture(autouse=True)
@@ -28,3 +30,5 @@ def _force_offline(monkeypatch):
     monkeypatch.setattr(config.settings, "use_docling", False, raising=False)
     monkeypatch.setattr(config.settings, "embedder", "auto", raising=False)
     monkeypatch.setattr(config.settings, "abstain_threshold", None, raising=False)
+    monkeypatch.setattr(config.settings, "reader_model", "", raising=False)
+    monkeypatch.setattr(config.settings, "reader_answers", False, raising=False)

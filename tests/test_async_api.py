@@ -84,7 +84,7 @@ async def test_empty_index_is_a_409(monkeypatch):
 async def test_slow_model_calls_overlap(seeded, monkeypatch):
     """20 requests that each wait 0.25 s on the model finish together, not one after another."""
 
-    async def slow_answer(question, chunks):
+    async def slow_answer(question, chunks, reading=None):
         await asyncio.sleep(0.25)
         return Answer("ok", [])
 
