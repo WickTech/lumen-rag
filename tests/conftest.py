@@ -19,6 +19,8 @@ config.settings.embedder = "auto"
 config.settings.abstain_threshold = None
 config.settings.reader_model = ""
 config.settings.reader_answers = False
+config.settings.contextual = False
+config.settings.decompose = False
 
 
 @pytest.fixture(autouse=True)
@@ -32,3 +34,5 @@ def _force_offline(monkeypatch):
     monkeypatch.setattr(config.settings, "abstain_threshold", None, raising=False)
     monkeypatch.setattr(config.settings, "reader_model", "", raising=False)
     monkeypatch.setattr(config.settings, "reader_answers", False, raising=False)
+    monkeypatch.setattr(config.settings, "contextual", False, raising=False)
+    monkeypatch.setattr(config.settings, "decompose", False, raising=False)
