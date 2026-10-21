@@ -4,8 +4,21 @@ version = "0.1.0"
 description = "A transparent, evaluated RAG engine: ingest documents, retrieve with vector search, answer with citations, and measure retrieval quality."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Rishabh Verma" }]
+keywords = ["rag", "retrieval-augmented-generation", "evaluation", "vector-search", "bm25", "pgvector", "opentelemetry", "fastapi", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+    "Framework :: FastAPI",
+]
 dependencies = [
     "fastapi>=0.115",
     "starlette>=1.3.1",  # fastapi's own pin allowed a starlette with 2 known CVEs
@@ -31,6 +44,14 @@ answer-eval = ["deepeval>=3.0", "openai>=1.55"]
 # ruff pinned exactly: new releases widen the default rule set and break CI.
 dev = ["pytest>=8.3", "pytest-asyncio>=0.24", "ruff==0.17.0"]
 
+[project.urls]
+Homepage = "https://github.com/WickTech/lumen-rag"
+Source = "https://github.com/WickTech/lumen-rag"
+Documentation = "https://github.com/WickTech/lumen-rag#readme"
+Changelog = "https://github.com/WickTech/lumen-rag/blob/master/CHANGELOG.md"
+Issues = "https://github.com/WickTech/lumen-rag/issues"
+Demo = "https://huggingface.co/spaces/WickTech/lumen-rag"
+
 [project.scripts]
 lumen = "lumen_rag.cli:app"
 
@@ -40,6 +61,25 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["lumen_rag"]
+
+# Keep the source distribution to what a downstream packager needs: the package, its
+# tests, the bundled eval data, scripts and docs. Not CI config, the dev lockfile or
+# editor/agent folders.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/lumen_rag",
+    "/tests",
+    "/scripts",
+    "/data",
+    "/docs",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/benchmark_results.json",
+    "/benchmark_results_v2.json",
+    "/docker-compose.yml",
+    "/Makefile",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
