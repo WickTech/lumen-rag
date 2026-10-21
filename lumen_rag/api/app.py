@@ -88,7 +88,15 @@ def root():
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "offline_mode": settings.offline}
+    emb = engine.embedder
+    return {
+        "status": "ok",
+        "offline_mode": settings.offline,
+        # Which embedder is live, so the demo UI can say what it is running on.
+        "embedder": type(emb).__name__,
+        "embedding_model": getattr(emb, "model_name", None),
+        "abstain_threshold": settings.abstain_threshold,
+    }
 
 
 @app.get("/stats")

@@ -37,7 +37,8 @@
 <body>
 <header>
   <h1>🔦 Lumen RAG — Live Demo</h1>
-  <p>Upload docs → hybrid retrieval (vector + BM25) → cited answer. Runs 100% offline.</p>
+  <p>Upload docs → retrieval (vector, BM25 or hybrid) → cited answer, or a refusal when the documents don't contain it. No API key.</p>
+  <p class="status" id="engineInfo"></p>
 </header>
 <main>
 
@@ -66,6 +67,7 @@
       <button id="askBtn">Ask</button>
     </div>
     <div class="answer" id="answer">Answer will appear here.</div>
+    <div class="status" id="confidence"></div>
     <div id="citations"></div>
   </div>
 
@@ -126,6 +128,7 @@ $('resetBtn').onclick = async () => {
   $('ingestStatus').textContent = 'Index cleared.';
   $('answer').textContent = 'Answer will appear here.';
   $('citations').innerHTML = '';
+  $('confidence').textContent = '';
   $('metrics').innerHTML = '';
 };
 
@@ -134,12 +137,17 @@ $('askBtn').onclick = async () => {
   if (!question) return;
   $('answer').textContent = 'Thinking…';
   $('citations').innerHTML = '';
+  $('confidence').textContent = '';
   try {
     const r = await api('/query', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, mode: $('mode').value, k: 5 })
     });
     $('answer').textContent = r.answer;
+    if (r.confidence !== null && r.confidence !== undefined) {
+      $('confidence').textContent = `Retrieval confidence ${Number(r.confidence).toFixed(3)}` +
+        (r.abstained ? ' — below the threshold, so it refused instead of guessing.' : ' — answered.');
+    }
     const citationsEl = $('citations');
     citationsEl.innerHTML = '';
     // doc_id is attacker-controlled (set at /ingest time via IngestRequest.documents[].id,
@@ -155,6 +163,15 @@ $('askBtn').onclick = async () => {
     $('answer').textContent = 'Error: ' + e.message;
   }
 };
+
+// Say which embedder is live; real embedders rank best in vector mode (see README benchmarks).
+api('/health').then(h => {
+  const names = { HashingEmbedder: 'offline hashing embedder', FastEmbedEmbedder: 'local embedding model', OpenAIEmbedder: 'OpenAI embeddings' };
+  let info = 'Running on the ' + (names[h.embedder] || h.embedder) + (h.embedding_model ? ` (${h.embedding_model})` : '');
+  info += h.abstain_threshold !== null ? ` · refuses below retrieval confidence ${h.abstain_threshold}` : ' · abstention off';
+  $('engineInfo').textContent = info;
+  if (h.embedder !== 'HashingEmbedder') $('mode').value = 'vector';
+}).catch(() => {});
 
 $('question').addEventListener('keydown', e => { if (e.key === 'Enter') $('askBtn').click(); });
 

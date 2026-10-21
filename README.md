@@ -19,7 +19,7 @@ reranking — instead of vibes.
 
 ![Lumen RAG demo: load the sample corpus, ask a question, get a cited answer, run the built-in retrieval eval](https://raw.githubusercontent.com/WickTech/lumen-rag/master/docs/demo.gif)
 
-*The bundled demo UI (`lumen serve`, then open `/demo/`), recorded offline: no API key, no network.*
+*The bundled demo UI: the same page the [hosted demo](https://huggingface.co/spaces/WickTech/lumen-rag) serves, or `lumen serve` locally. Recorded offline on the hashing embedder; the hosted one runs bge-small and also shows retrieval confidence and refusals.*
 
 ---
 
@@ -41,13 +41,20 @@ reranking — instead of vibes.
 
 Upload your own `.txt`/`.md`/`.html`/`.pdf`/`.docx` files (or load the bundled
 sample corpus), ask questions against them, and watch retrieval quality
-(recall@k, MRR, nDCG@k) render live from the eval harness — no signup, no API
-key, runs entirely on the offline hashing embedder.
+(recall@k, MRR, nDCG@k) render live from the eval harness. No signup, no API key:
+retrieval runs on `BAAI/bge-small-en-v1.5` on CPU, and questions the documents
+can't answer are refused with their retrieval confidence shown (threshold 0.66,
+see [Abstention](#-abstention--refusing-what-the-documents-dont-say)). Answers are
+extractive, not LLM-generated, since the Space has no model key.
+
+The Space runs the same FastAPI app as `lumen serve`: the UI above at `/` and the
+HTTP API with interactive docs at [`/docs`](https://wicktech-lumen-rag.hf.space/docs).
 
 Run it locally instead:
 
 ```bash
-lumen serve && open http://localhost:8000
+pip install -e ".[embed]"
+LUMEN_EMBEDDER=fastembed LUMEN_ABSTAIN_THRESHOLD=0.66 lumen serve && open http://localhost:8000
 ```
 
 ---
