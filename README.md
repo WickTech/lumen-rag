@@ -351,6 +351,14 @@ What the two tables say:
 - **Reranking buys the last few points at 25× the latency.** A 22M-parameter cross-encoder
   (`Xenova/ms-marco-MiniLM-L-6-v2`, CPU) takes MRR from 0.95 to 0.97 and costs ~470 ms a query.
   Worth it when precision at rank 1 matters; not for an autocomplete box.
+- **Query decomposition did not help (a negative result, kept opt-in).** Splitting compound
+  questions at the second question word ("…, and how soon must I submit the claim?") and adding
+  each sub-question's best new document recovers the missing hop on some multi-hop questions and
+  loses it on as many: multi-hop recall@5 stays 0.90 with bge-small (0.95 with the reranker) and
+  drops from 0.88 to 0.83 in hybrid mode. Equal-weight RRF of the sub-query lists did worse
+  (0.88). The remaining misses are *implicit* hops ("How much bonus do I earn if checkout is
+  down?" needs the severity table) that no lexical split can see; an LLM rewrite is the next thing
+  to try. Reproduce with `--decompose`; enable with `LUMEN_DECOMPOSE=1`.
 - **Not measured yet:** OpenAI `text-embedding-3-small`. The run is wired up
   (`--embedder openai`) but the key available when these numbers were taken had no API credit.
 
@@ -612,7 +620,8 @@ answerer treat the rates as an approximation. `diagnose_claims(..., aligner=fn)`
 - [x] **Real embedder benchmark** — local bge-small (fastembed) next to the hashing baseline; OpenAI row pending
 - [x] **Abstention** — confidence-gated refusal, calibrated on held-out questions, measured end to end
 - [x] **Answerability check beyond similarity** — an extractive SQuAD 2.0 reader refuses near misses that similarity lets through
-- [ ] **Query decomposition** for multi-hop questions, measured on the v2 multihop category
+- [x] **Query decomposition** for multi-hop questions: measured, no gain with a real embedder (see Benchmarks); kept opt-in
+- [ ] **LLM query rewriting** for implicit multi-hop questions (needs an API key with credit)
 - [ ] **Contextual chunk headers** — document context prepended before embedding and BM25
 - [ ] **Public benchmark** — BEIR SciFact alongside the in-repo sets
 - [ ] **Fine-tuned embedding adapter** — LoRA adapter trained on domain Q&A pairs to improve recall

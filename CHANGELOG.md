@@ -13,6 +13,9 @@ pre-1.0, so minor versions may change behaviour.
   off-topic questions separately; the 40 near-miss rows in eval set v2 are tagged `near_miss`.
 - `scripts/real_pdf_check.py`: end-to-end check on the NIST AI RMF 1.0 PDF.
 - `lumen eval-answers --claims` now runs the engine's own path, so both gates are measured.
+- **Query decomposition** (`LUMEN_DECOMPOSE=1`, `benchmark.py --decompose`): compound questions are
+  split into sub-questions whose best new documents can join the results. Measured: no gain on eval
+  set v2 with bge-small, a loss in hybrid mode; off by default and documented as a negative result.
 - **Pluggable embedders**: `LUMEN_EMBEDDER=auto|hashing|fastembed|openai`. `fastembed` runs
   `BAAI/bge-small-en-v1.5` locally (ONNX, CPU, no API key; `embed` extra). `auto` keeps the old behaviour.
 - **Abstention**: with `LUMEN_ABSTAIN_THRESHOLD` set, the engine refuses questions whose retrieval

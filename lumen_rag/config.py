@@ -33,6 +33,8 @@ class Settings:
     # "1" answers offline with the sentence holding the reader's span instead of the
     # top passages: more precise, but wrong on multi-hop questions (see README).
     reader_answers: bool = os.getenv("LUMEN_READER_ANSWERS", "") == "1"
+    # "1" splits compound questions into sub-queries and fuses their results (RRF).
+    decompose: bool = os.getenv("LUMEN_DECOMPOSE", "") == "1"
     chat_model: str = os.getenv("CHAT_MODEL", "gpt-4o-mini")
     index_dir: str = os.getenv("LUMEN_INDEX_DIR", ".lumen_index")
     admin_key: str = os.getenv("ADMIN_KEY", "")

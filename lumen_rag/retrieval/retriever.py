@@ -32,11 +32,15 @@ from ..config import settings
 from ..embeddings import Embedder, embed_query, get_embedder
 from ..store import ScoredChunk, Store
 from .bm25 import BM25Index, reciprocal_rank_fusion
+from .decompose import split_question
 from .rerank import Reranker, get_reranker
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 RetrievalMode = Literal["vector", "bm25", "hybrid"]
+
+# How deep a sub-question looks for a document the whole question missed.
+SUB_QUERY_DEPTH = 3
 
 _FROM_SETTINGS = object()  # sentinel: build the reranker from settings
 
@@ -55,6 +59,7 @@ class Retriever:
         store: Store,
         embedder: Embedder | None = None,
         reranker: Reranker | None | object = _FROM_SETTINGS,
+        decompose: bool | None = None,
     ) -> None:
         self.store = store
         self.embedder = embedder or get_embedder()
@@ -63,6 +68,12 @@ class Retriever:
             get_reranker() if reranker is _FROM_SETTINGS else reranker  # type: ignore[assignment]
         )
         self._bm25: BM25Index | None = None
+        # None: follow LUMEN_DECOMPOSE at query time.
+        self._decompose = decompose
+
+    @property
+    def decompose(self) -> bool:
+        return settings.decompose if self._decompose is None else self._decompose
 
     def _get_bm25(self) -> BM25Index:
         """Build (or return cached) BM25 index from the current store chunks."""
@@ -155,10 +166,56 @@ class Retriever:
 
         if self.reranker is not None:
             pool_size = k * max(1, settings.rerank_pool_factor)
-            pool = self._first_stage(query, pool_size, mode, rerank, rerank_weight, query_vec)
+            # With a reranker, sub-question hits join the pool instead of displacing
+            # anything: the cross-encoder judges them against the whole question.
+            pool = self._decomposed(query, pool_size, mode, rerank, rerank_weight, query_vec, union=True)
             return self.reranker.rerank(query, pool, k)
 
-        return self._first_stage(query, k, mode, rerank, rerank_weight, query_vec)
+        return self._decomposed(query, k, mode, rerank, rerank_weight, query_vec)
+
+    def _decomposed(
+        self,
+        query: str,
+        k: int,
+        mode: RetrievalMode,
+        rerank: bool,
+        rerank_weight: float,
+        query_vec: np.ndarray | None,
+        union: bool = False,
+    ) -> list[ScoredChunk]:
+        """First-stage retrieval, plus sub-question results when decomposition is on.
+
+        The whole question's ranking is kept. Each sub-question then offers its best
+        result from a document not already listed, which replaces the lowest-ranked
+        original result only if it scores higher. Two simpler fusions were measured
+        first and did worse: equal-weight RRF of all the lists let a sub-question that
+        lost its context ("how is it handled afterwards") reshuffle everything, and
+        always reserving a slot evicted correct rank-5 results for weak sub-query hits.
+        """
+        base = self._first_stage(query, k, mode, rerank, rerank_weight, query_vec)
+        subs = split_question(query) if self.decompose else [query]
+        if len(subs) == 1:
+            return base
+        with tracing.span("lumen.decompose", **{"lumen.subqueries": len(subs)}):
+            docs = {sc.chunk.doc_id for sc in base}
+            extras: list[ScoredChunk] = []
+            for sub in subs:
+                for sc in self._first_stage(sub, SUB_QUERY_DEPTH, mode, rerank, rerank_weight, None):
+                    if sc.chunk.doc_id not in docs:
+                        docs.add(sc.chunk.doc_id)
+                        extras.append(sc)
+                        break
+            if union:
+                return base + extras
+            results = list(base)
+            victim = len(results) - 1
+            for extra in extras:
+                if victim < 1:  # the whole question's best hit always stays
+                    break
+                if extra.score > results[victim].score:
+                    results[victim] = extra
+                    victim -= 1
+            return results
 
     def _first_stage(
         self,

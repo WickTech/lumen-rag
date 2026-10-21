@@ -13,7 +13,7 @@ as such. Hiring claims are anecdotal; no source gave data on what actually earns
 | 2. Public benchmark | Open | — |
 | 3. Abstention | **Done**: similarity gate (#10), then an extractive SQuAD 2.0 reader gate that catches near misses (#12). AUROC 0.75 → 0.88; NIST AI RMF PDF spot check 10/10. | README Abstention, `scripts/real_pdf_check.py` |
 | 4. LLM-generated answer results | Open (needs an API key with credit) | — |
-| 5. Query-side intelligence | In progress: query decomposition for multi-hop questions | — |
+| 5. Query-side intelligence | Rule-based decomposition **measured, no gain** with bge-small (kept opt-in); LLM rewriting for implicit hops is open (needs API credit) | README Benchmarks |
 | 16. README test count | **Done** | #9 |
 | Demo mismatch (Space vs README GIF) | **Done**: the Space serves the README's UI | #11 |
 
