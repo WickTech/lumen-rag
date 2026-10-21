@@ -18,4 +18,7 @@ nDCG@k) render live from the eval harness. Retrieval uses a real embedding
 model (BAAI/bge-small-en-v1.5) running locally on CPU, and the app refuses
 questions the documents can't answer. No API key required.
 
+The page at `/` is the FastAPI demo UI from the main repository; the HTTP API
+and its docs are at `/docs`, and a Gradio version of the UI is at `/gradio`.
+
 Source: https://github.com/WickTech/lumen-rag

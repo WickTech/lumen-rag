@@ -1,6 +1,11 @@
-"""Gradio front-end for the Lumen RAG Space (free-tier CPU, no Docker needed).
+"""Entry point for the Lumen RAG Space.
 
-Wraps `lumen_rag.RagEngine` directly in-process — no HTTP layer.
+The Space serves the same thing as `lumen serve`: the FastAPI app with its demo
+UI at / (the one in the README GIF) and the HTTP API (/docs). Free accounts can
+only host Gradio Spaces on ZeroGPU, and ZeroGPU needs a @spaces.GPU function, so
+a Gradio front-end is mounted at /gradio. Both share one engine and one index.
+
+Run `python app.py` (as the Space does) for the combined server.
 """
 from __future__ import annotations
 
@@ -14,6 +19,8 @@ from secrets import compare_digest
 os.environ.setdefault("LUMEN_EMBEDDER", "fastembed")
 os.environ.setdefault("LUMEN_ABSTAIN_THRESHOLD", "0.66")
 
+import importlib
+
 import gradio as gr
 import spaces
 
@@ -24,10 +31,9 @@ from lumen_rag.eval.harness import load_cases
 from lumen_rag.ingestion.loaders import _LOADERS, load_file
 from lumen_rag.retrieval import Retriever
 
-# This is the app that's actually publicly live (huggingface.co/spaces/WickTech/lumen-rag)
-# — the FastAPI app in lumen_rag/api/app.py has its own rate limits/upload cap/admin
-# gate, but this Gradio front-end is a completely separate process that shares none
-# of that. Same protections, adapted to Gradio's callback model.
+# The FastAPI routes in lumen_rag/api/app.py enforce their own rate limits, upload cap
+# and admin gate; the Gradio callbacks below bypass those routes, so they repeat the
+# same protections, adapted to Gradio's callback model.
 _MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB per file
 _ADMIN_KEY = os.getenv("ADMIN_KEY", "")
 
@@ -54,7 +60,14 @@ _REPO_ROOT = _find_repo_root()
 _SAMPLE_DIR = _REPO_ROOT / "data" / "docs"
 _EVAL_PATH = _REPO_ROOT / "data" / "eval.jsonl"
 
-engine = RagEngine()
+# The FastAPI module, not the `app` object lumen_rag.api re-exports: its `engine`
+# global is what the HTML UI and the API use, and the lifespan may replace it,
+# so it is looked up on every call rather than bound once.
+_api = importlib.import_module("lumen_rag.api.app")
+
+
+def _engine() -> RagEngine:
+    return _api.engine
 
 
 def load_sample(request: gr.Request) -> str:
@@ -62,7 +75,7 @@ def load_sample(request: gr.Request) -> str:
         raise gr.Error("Too many requests, try again shortly.")
     files = sorted(p for p in _SAMPLE_DIR.iterdir() if p.suffix.lower() in _LOADERS)
     docs = [load_file(p) for p in files]
-    total = engine.add_documents(docs)
+    total = _engine().add_documents(docs)
     return f"Indexed {len(docs)} sample files, {total} chunks."
 
 
@@ -84,7 +97,7 @@ def upload_files(files: list[str], request: gr.Request) -> str:
         docs.append(doc)
     if not docs:
         return f"No supported files. Supported: {sorted(_LOADERS)}"
-    total = engine.add_documents(docs)
+    total = _engine().add_documents(docs)
     return f"Indexed {len(docs)} files, {total} chunks."
 
 
@@ -98,8 +111,7 @@ def reset_index(admin_key: str, request: gr.Request) -> str:
         raise gr.Error("Too many requests, try again shortly.")
     if _ADMIN_KEY and not compare_digest(admin_key or "", _ADMIN_KEY):
         raise gr.Error("Invalid admin key.")
-    global engine
-    engine = RagEngine()
+    _api.engine = RagEngine()
     return "Index reset."
 
 
@@ -107,9 +119,9 @@ def reset_index(admin_key: str, request: gr.Request) -> str:
 def ask(question: str, k: int, mode: str, request: gr.Request):
     if _rate_limited(request, "query", limit=30, window_s=60):
         raise gr.Error("Too many requests, try again shortly.")
-    if len(engine.store) == 0:
+    if len(_engine().store) == 0:
         return "Index is empty — load the sample corpus or upload files first.", ""
-    result = engine.query(question, k=int(k), mode=mode)
+    result = _engine().query(question, k=int(k), mode=mode)
     lines = []
     if result.confidence is not None:
         verdict = "below threshold, abstained" if result.abstained else "answered"
@@ -126,10 +138,11 @@ def run_eval(k: int, request: gr.Request) -> str:
         raise gr.Error("Too many requests, try again shortly.")
     if not _EVAL_PATH.exists():
         return "Bundled eval set not found."
-    if len(engine.store) == 0:
+    if len(_engine().store) == 0:
         return "Index is empty — load the sample corpus first."
     cases = load_cases(_EVAL_PATH)
-    report = evaluate(Retriever(engine.store, engine.embedder), cases, k=int(k))
+    eng = _engine()
+    report = evaluate(Retriever(eng.store, eng.embedder), cases, k=int(k))
     d = report.as_dict()
     return "\n".join(f"{key}: {value}" for key, value in d.items())
 
@@ -179,4 +192,7 @@ with gr.Blocks(title="Lumen RAG") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch()
+    import uvicorn
+
+    server = gr.mount_gradio_app(_api.app, demo, path="/gradio")
+    uvicorn.run(server, host="0.0.0.0", port=int(os.getenv("GRADIO_SERVER_PORT", "7860")))

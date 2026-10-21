@@ -78,7 +78,7 @@ class OpenAIEmbedder:
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
         )
-        self._model = settings.embed_model
+        self._model = self.model_name = settings.embed_model
         self.dim = _OPENAI_DIMS.get(self._model, 1536)
 
     def embed(self, texts: list[str]) -> np.ndarray:
