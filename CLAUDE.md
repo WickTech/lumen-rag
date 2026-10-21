@@ -33,8 +33,8 @@ A small RAG engine with built-in evaluation. `README.md` is a short overview; de
 
 ## Gotchas
 
-- A `.env` in the parent checkout (`/home/rishi/workspace/lumen-rag/.env`) is found by
-  `load_dotenv()`; it holds an OpenAI key with no credit, so `--embedder openai` fails with 429.
+- `load_dotenv()` searches parent directories, so a `.env` above a worktree is picked up too.
+  An `OPENAI_API_KEY` there switches `auto` to OpenAI; tests neutralise it, scripts do not.
 - An expired local HF login makes public model downloads fail with 401: set
   `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`.
 - HF Space (`deploy/hf-space/`): ZeroGPU only accepts apps launched through Gradio's
