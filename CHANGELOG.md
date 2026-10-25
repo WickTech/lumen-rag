@@ -5,6 +5,9 @@ pre-1.0, so minor versions may change behaviour.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-25
+
+First tagged release.
 ### Changed
 - **README reorganised**: a short README (about, results at a glance, install, usage, credits) with
   a table of contents; the detail moved to `docs/benchmarks.md`, `docs/abstention.md`,
@@ -44,12 +47,7 @@ pre-1.0, so minor versions may change behaviour.
 - Loading a saved index with an embedder of a different dimension now fails with a clear message.
 - The test suite no longer picks up an `OPENAI_API_KEY` from a developer `.env` during collection.
 
-## [0.1.0] - unreleased
-
-First tagged release. The engine existed before; this release adds the evaluation and
-operations work below and fixes the benchmark numbers that earlier docs reported.
-
-### Added
+### Added (evaluation and operations)
 - **Eval set v2** (`data/eval_v2`): 120 documents and 176 questions in five categories (direct,
   paraphrase, disambiguation, multihop, unanswerable), each answerable row with a verbatim evidence span,
   plus `lumen_rag.eval.validate` and `scripts/validate_eval_set.py`. (#3)
@@ -67,7 +65,7 @@ operations work below and fixes the benchmark numbers that earlier docs reported
   text are recorded only with `LUMEN_TRACE_CONTENT=1`. (#7)
 - New extras: `pgvector`, `tracing`.
 
-### Fixed
+### Fixed (evaluation and operations)
 - `evaluate()` ignored the retrieval mode, so every benchmark row ran in hybrid mode. The README and case
   study tables were wrong and have been re-measured. (#3)
 - `RagEngine` replaced an empty store with an in-memory one (`store or ...` on a falsy object). (#6)

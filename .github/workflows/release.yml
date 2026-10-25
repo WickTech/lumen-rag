@@ -63,7 +63,8 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: build
-    if: github.event_name == 'release'
+    # Opt-in: set the repository variable PUBLISH_TO_PYPI=true once PyPI is set up (docs/RELEASING.md).
+    if: github.event_name == 'release' && vars.PUBLISH_TO_PYPI == 'true'
     runs-on: ubuntu-latest
     environment:
       name: pypi
