@@ -4,6 +4,9 @@ Releases are built and published by [`.github/workflows/release.yml`](../.github
 when a GitHub Release is published. PyPI never sees a password or token: the workflow authenticates with
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC).
 
+> The publish job only runs when the repository variable `PUBLISH_TO_PYPI` is `true`, so a GitHub-only
+> release (tag and notes, no upload) is the default. Set the variable after finishing the setup below.
+
 ## One-time setup (needs the PyPI account owner)
 
 The project name `lumen-rag` was unclaimed on PyPI when this was written (checked 2026-10-18). The first
