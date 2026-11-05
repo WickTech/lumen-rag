@@ -1,0 +1,27 @@
+{
+  "dataset": "BeIR/scifact",
+  "n_docs": 5183,
+  "n_queries": 300,
+  "embedder": "hashing",
+  "index_seconds": 3.4,
+  "results": [
+    {
+      "config": "vector-only",
+      "ndcg@10": 0.4566,
+      "recall@100": 0.6517,
+      "ms_per_query": 63.1
+    },
+    {
+      "config": "BM25 only",
+      "ndcg@10": 0.6644,
+      "recall@100": 0.8859,
+      "ms_per_query": 65.4
+    },
+    {
+      "config": "hybrid (BM25 + RRF)",
+      "ndcg@10": 0.4911,
+      "recall@100": 0.8737,
+      "ms_per_query": 77.0
+    }
+  ]
+}
