@@ -5,6 +5,19 @@ pre-1.0, so minor versions may change behaviour.
 
 ## [Unreleased]
 
+### Security
+- **Index mutation needs an admin key.** `/ingest`, `/ingest/upload`, `/ingest/sample` and `/reset`
+  share one guard: with `ADMIN_KEY` set they require it in `X-Admin-Key` (401 otherwise, failed
+  attempts throttled); unset, they are refused (403) on a Hugging Face Space (`SPACE_ID`) and open
+  locally. `/reset` with a wrong key now returns 401 instead of 404. The Space's Gradio callbacks use
+  the same guard. The hosted demo loads the sample corpus at startup (`LUMEN_SEED_SAMPLE`) and the
+  UI shows ingestion as locked (`ingest_locked` in `GET /health`).
+- **Index writes are serialised** with one `asyncio.Lock` (ingest, save, reset); concurrent ingests
+  could previously lose vectors.
+- **Ingestion bounds**: uploads are read in chunks and refused past `LUMEN_MAX_UPLOAD_BYTES` (413),
+  at most `LUMEN_MAX_UPLOAD_FILES` files per upload (413), and `chunk_size` / `overlap` are bounded
+  (422 instead of a 500 from the chunker).
+
 ## [0.1.0] - 2026-10-25
 
 First tagged release.

@@ -19,10 +19,13 @@ in on a staged copy without touching the real top-level README/requirements.
    - Visibility: Public
 2. Authenticate locally: `hf auth login` (needs a token with **write**
    access, from https://huggingface.co/settings/tokens).
-3. **Set the `ADMIN_KEY` Space secret** (Settings → Variables and secrets →
-   New secret) to a random value. Without it, the "Reset index" button is
-   open to any visitor and wipes the shared index for everyone. With it set,
-   resetting requires entering the same value in the app's admin-key field.
+3. **Optional: set the `ADMIN_KEY` Space secret** (Settings → Variables and
+   secrets → New secret) to a random value. Ingesting and resetting (the API
+   routes and the Gradio callbacks) are refused on the Space while it is unset,
+   so visitors cannot fill, poison or wipe the shared index; the bundled sample
+   corpus is loaded at startup instead. With it set, the owner can ingest or
+   reset by sending the same value (`X-Admin-Key` header, or the demo's
+   admin-key field).
 
 ## Push a new version
 

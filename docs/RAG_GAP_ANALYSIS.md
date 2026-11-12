@@ -55,7 +55,7 @@ Gaps 6 to 8 and 10 to 15 are unchanged.
 **Medium**
 5. **No query-side intelligence.** No rewriting, multi-query, decomposition or HyDE (no matches in `lumen_rag/`). Multihop MRR is your weakest category (0.67 vector), so this is the natural thing to improve and measure.
 6. **No metadata filtering.** Retrieval cannot filter by source, date or tag, and the API does not expose `namespace`. Namespaces exist in the store only.
-7. **No per-user auth or document-level access control.** Only a shared `ADMIN_KEY` on `/reset`. A "multi-tenant" claim needs namespace selection bound to an authenticated identity.
+7. **No per-user auth or document-level access control.** Only a shared `ADMIN_KEY` on the index-mutating routes (`/ingest*`, `/reset`). A "multi-tenant" claim needs namespace selection bound to an authenticated identity.
 8. **Ingestion is not incremental.** No content hashing, dedup or delete-by-document. Updated files are re-chunked and re-added by hand.
 9. **No contextual chunking** (prepend a document-level summary to each chunk) and no parent-document or small-to-big retrieval. Both have the strongest published evidence (Anthropic's numbers above).
 10. **No prompt-injection handling** for retrieved text: no instruction hierarchy, no delimiter or quoting policy, no adversarial test cases.
