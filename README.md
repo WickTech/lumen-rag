@@ -147,6 +147,8 @@ curl -X POST localhost:8000/query -H 'content-type: application/json' \
 
 Responses carry the answer, numbered citations, and `abstained`, `confidence` and `answerability`
 when the gates are enabled. `POST /query/stream` streams the answer; `POST /ingest/upload` takes files.
+With `ADMIN_KEY` set, the ingest routes and `/reset` need it in an `X-Admin-Key` header; on a Hugging
+Face Space without one they are refused (see [configuration](docs/configuration.md)).
 
 **Python.**
 

@@ -2,17 +2,17 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import tempfile
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from secrets import compare_digest
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .. import tracing
 from ..config import settings
@@ -25,10 +25,22 @@ from ..retrieval import RetrievalMode, Retriever
 from .ratelimit import enforce
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
-_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB per file
+_SAMPLE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "docs"
+_READ_CHUNK = 64 * 1024
 
 # Replaced by lifespan; initialised here so the name always exists (e.g. in tests).
 engine: RagEngine = RagEngine()
+
+# Serialises every index mutation (add_documents, save, engine swaps): the store is not
+# safe for concurrent writers. Always read `engine` after acquiring it, so a write never
+# lands on an engine that a concurrent /reset has just replaced.
+index_lock = asyncio.Lock()
+
+
+def _load_sample_docs() -> list[dict]:
+    """Parse the bundled sample corpus (blocking)."""
+    files = sorted(p for p in _SAMPLE_DIR.iterdir() if p.suffix.lower() in _LOADERS)
+    return [load_file(p) for p in files]
 
 
 @asynccontextmanager
@@ -36,10 +48,16 @@ async def lifespan(app: FastAPI):
     global engine
     tracing.setup_from_env()  # no-op unless LUMEN_TRACING is set
     index = Path(settings.index_dir)
-    if (index / "chunks.json").exists():
-        engine = RagEngine.load(index)
-    else:
-        engine = RagEngine()
+    async with index_lock:
+        if (index / "chunks.json").exists():
+            engine = RagEngine.load(index)
+        else:
+            engine = RagEngine()
+        # The hosted demo locks visitor ingestion, so it starts with the sample corpus
+        # instead of an empty index (LUMEN_SEED_SAMPLE; on by default when hosted).
+        if settings.seed_sample and len(engine.store) == 0 and _SAMPLE_DIR.is_dir():
+            docs = await asyncio.to_thread(_load_sample_docs)
+            await asyncio.to_thread(_index_documents, engine, docs, 120, 20)
     yield
 
 
@@ -58,6 +76,46 @@ _MAX_DOC_CHARS = 2_000_000  # ~2M chars per document
 _MAX_DOCS_PER_REQUEST = 100
 
 
+def ingest_locked() -> bool:
+    """True when the demo UI cannot ingest without a key: ADMIN_KEY set, or hosted."""
+    return bool(settings.admin_key) or settings.hosted
+
+
+def admin_denial(provided: str) -> int | None:
+    """Status code that refuses an index mutation, or None to allow it.
+
+    ADMIN_KEY set: the caller must send it (401 otherwise). Not set: refused when
+    hosted (403, so a public Space is never left open), allowed for local use.
+    """
+    admin_key = settings.admin_key
+    if admin_key:
+        return None if hmac.compare_digest(provided.encode(), admin_key.encode()) else 401
+    return 403 if settings.hosted else None
+
+
+def require_admin(request: Request) -> None:
+    """Dependency guarding every route that mutates the index."""
+    status = admin_denial(request.headers.get("x-admin-key", ""))
+    if status == 401:
+        # Throttle key guessing: failed attempts share one bucket per client.
+        enforce(request, "admin-auth", limit=5, window_s=60)
+        raise HTTPException(status_code=401, detail="Missing or invalid X-Admin-Key header.")
+    if status == 403:
+        raise HTTPException(
+            status_code=403,
+            detail="Ingestion is locked on the public demo (no ADMIN_KEY configured).",
+        )
+
+
+def check_chunking(chunk_size: int, overlap: int) -> None:
+    """Raise ValueError unless chunk_size and overlap are within the configured bounds."""
+    lo, hi = settings.min_chunk_size, settings.max_chunk_size
+    if not lo <= chunk_size <= hi:
+        raise ValueError(f"chunk_size must be between {lo} and {hi}")
+    if not 0 <= overlap < chunk_size:
+        raise ValueError("overlap must be >= 0 and smaller than chunk_size")
+
+
 class Document(BaseModel):
     id: str | None = None
     text: str = Field(min_length=1, max_length=_MAX_DOC_CHARS)
@@ -65,12 +123,17 @@ class Document(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    # Unlike /ingest/upload (capped per-file at _MAX_UPLOAD_BYTES), this JSON
+    # Unlike /ingest/upload (capped per-file at settings.max_upload_bytes), this JSON
     # body had no bound at all — an unauthenticated request could carry
     # arbitrarily many arbitrarily large documents in one call.
     documents: list[Document] = Field(max_length=_MAX_DOCS_PER_REQUEST)
     chunk_size: int = 120
     overlap: int = 20
+
+    @model_validator(mode="after")
+    def _bounded_chunking(self) -> IngestRequest:
+        check_chunking(self.chunk_size, self.overlap)  # ValueError -> 422
+        return self
 
 
 class QueryRequest(BaseModel):
@@ -98,6 +161,8 @@ def health() -> dict:
         "abstain_threshold": settings.abstain_threshold,
         "reader": settings.reader_model or None,
         "reader_threshold": settings.reader_threshold if settings.reader_model else None,
+        # True when the demo UI cannot ingest or reset (ADMIN_KEY set, or hosted without one).
+        "ingest_locked": ingest_locked(),
     }
 
 
@@ -106,12 +171,12 @@ def stats() -> dict:
     return {"chunks_indexed": len(engine.store), "embedding_dim": engine.store.dim}
 
 
-@app.post("/ingest")
-def ingest(req: IngestRequest, request: Request) -> dict:
+@app.post("/ingest", dependencies=[Depends(require_admin)])
+async def ingest(req: IngestRequest, request: Request) -> dict:
     enforce(request, "ingest", limit=10, window_s=60)
     docs = [d.model_dump() for d in req.documents]
-    total = engine.add_documents(docs, chunk_size=req.chunk_size, overlap=req.overlap)
-    engine.save()
+    async with index_lock:
+        total = await asyncio.to_thread(_index_documents, engine, docs, req.chunk_size, req.overlap)
     return {"chunks_indexed": total}
 
 
@@ -151,59 +216,69 @@ def _index_documents(eng: RagEngine, docs: list[dict], chunk_size: int, overlap:
     return total
 
 
-@app.post("/ingest/upload")
+async def _read_bounded(f: UploadFile, limit: int) -> bytes:
+    """Read an upload in chunks, refusing with 413 as soon as it passes `limit` bytes."""
+    parts: list[bytes] = []
+    size = 0
+    while chunk := await f.read(_READ_CHUNK):
+        size += len(chunk)
+        if size > limit:
+            raise HTTPException(
+                status_code=413,
+                detail=f"{f.filename} exceeds the {limit // (1024 * 1024)}MB upload limit",
+            )
+        parts.append(chunk)
+    return b"".join(parts)
+
+
+@app.post("/ingest/upload", dependencies=[Depends(require_admin)])
 async def ingest_upload(
     request: Request, files: list[UploadFile], chunk_size: int = 120, overlap: int = 20
 ) -> dict:
     enforce(request, "ingest", limit=10, window_s=60)
+    try:
+        check_chunking(chunk_size, overlap)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    if len(files) > settings.max_upload_files:
+        raise HTTPException(
+            status_code=413, detail=f"At most {settings.max_upload_files} files per upload"
+        )
     docs = []
     for f in files:
         suffix = Path(f.filename or "").suffix.lower()
         if suffix not in _LOADERS:
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {f.filename}")
-        data = await f.read()
-        if len(data) > _MAX_UPLOAD_BYTES:
-            raise HTTPException(
-                status_code=413,
-                detail=f"{f.filename} exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB upload limit",
-            )
+        data = await _read_bounded(f, settings.max_upload_bytes)
         # Parsing (PDF/DOCX can be heavy) and indexing (embedding calls) block: run them off the loop.
         docs.append(await asyncio.to_thread(_load_upload, data, f.filename or "", suffix))
-    total = await asyncio.to_thread(_index_documents, engine, docs, chunk_size, overlap)
+    async with index_lock:
+        total = await asyncio.to_thread(_index_documents, engine, docs, chunk_size, overlap)
     return {"files_indexed": len(docs), "chunks_indexed": total}
 
 
-@app.post("/ingest/sample")
-def ingest_sample(request: Request) -> dict:
+@app.post("/ingest/sample", dependencies=[Depends(require_admin)])
+async def ingest_sample(request: Request) -> dict:
     enforce(request, "ingest", limit=10, window_s=60)
-    sample_dir = Path(__file__).resolve().parent.parent.parent / "data" / "docs"
-    if not sample_dir.is_dir():
+    if not _SAMPLE_DIR.is_dir():
         raise HTTPException(status_code=404, detail="Bundled sample corpus not found.")
-    files = sorted(p for p in sample_dir.iterdir() if p.suffix.lower() in _LOADERS)
-    docs = [load_file(p) for p in files]
-    total = engine.add_documents(docs)
-    engine.save()
+    docs = await asyncio.to_thread(_load_sample_docs)
+    async with index_lock:
+        total = await asyncio.to_thread(_index_documents, engine, docs, 120, 20)
     return {"files_indexed": len(docs), "chunks_indexed": total}
 
 
-@app.post("/reset")
-def reset(request: Request) -> dict:
-    # Wipes the (single, shared) index — on the public HF Space demo this
-    # would let any visitor nuke the corpus for everyone else. Gated behind
-    # ADMIN_KEY when set; stays open for local/offline dev when it isn't.
-    # Rate-limited first (before the key check) so guessing ADMIN_KEY is
-    # throttled too, not just successful resets.
+@app.post("/reset", dependencies=[Depends(require_admin)])
+async def reset(request: Request) -> dict:
+    # Wipes the (single, shared) index. require_admin gates it (ADMIN_KEY, or
+    # refused when hosted without one) and throttles failed key attempts.
     enforce(request, "reset", limit=5, window_s=60)
 
-    admin_key = settings.admin_key
-    if admin_key:
-        provided = request.headers.get("x-admin-key", "")
-        if not compare_digest(provided, admin_key):
-            raise HTTPException(status_code=404, detail="Not found")
-
     global engine
-    engine = RagEngine()
-    engine.save()
+    async with index_lock:
+        fresh = RagEngine()
+        await asyncio.to_thread(fresh.save)
+        engine = fresh
     return {"status": "reset"}
 
 

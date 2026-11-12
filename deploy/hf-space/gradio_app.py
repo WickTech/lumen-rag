@@ -12,9 +12,9 @@ backend ZeroGPU needs, and use the same engine and index as the API.
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
-from secrets import compare_digest
 
 # The Space runs a real local embedder (bge-small, ONNX via fastembed, CPU) and
 # refuses low-confidence questions. Set before importing lumen_rag: settings are
@@ -39,7 +39,8 @@ from lumen_rag.retrieval import Retriever
 
 # The FastAPI routes in lumen_rag/api/app.py enforce their own rate limits, upload cap
 # and admin gate; the Gradio callbacks below bypass those routes, so they repeat the
-# same protections, adapted to Gradio's callback model.
+# same protections, adapted to Gradio's callback model. The admin gate and the index
+# write lock are the API module's own (admin_denial, index_lock), not copies.
 _MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB per file
 _ADMIN_KEY = os.getenv("ADMIN_KEY", "")
 
@@ -76,18 +77,42 @@ def _engine() -> RagEngine:
     return _api.engine
 
 
-def load_sample(request: gr.Request) -> str:
+def _require_admin(admin_key: str) -> None:
+    # Same policy as the API routes: ADMIN_KEY set -> it must match; unset -> refused
+    # on the Space (SPACE_ID is set there), open when run locally.
+    status = _api.admin_denial(admin_key or "")
+    if status == 401:
+        raise gr.Error("Invalid admin key.")
+    if status == 403:
+        raise gr.Error("Ingestion is locked on the public demo.")
+
+
+async def _add_documents(docs: list[dict]) -> int:
+    # One writer at a time, shared with the API routes; read the engine after locking
+    # so a concurrent reset cannot leave this write on a discarded engine.
+    async with _api.index_lock:
+        eng = _engine()
+        return await asyncio.to_thread(eng.add_documents, docs)
+
+
+def _load_sample_docs() -> list[dict]:
+    files = sorted(p for p in _SAMPLE_DIR.iterdir() if p.suffix.lower() in _LOADERS)
+    return [load_file(p) for p in files]
+
+
+async def load_sample(admin_key: str, request: gr.Request) -> str:
     if _rate_limited(request, "ingest", limit=10, window_s=60):
         raise gr.Error("Too many requests, try again shortly.")
-    files = sorted(p for p in _SAMPLE_DIR.iterdir() if p.suffix.lower() in _LOADERS)
-    docs = [load_file(p) for p in files]
-    total = _engine().add_documents(docs)
+    _require_admin(admin_key)
+    docs = await asyncio.to_thread(_load_sample_docs)
+    total = await _add_documents(docs)
     return f"Indexed {len(docs)} sample files, {total} chunks."
 
 
-def upload_files(files: list[str], request: gr.Request) -> str:
-    if _rate_limited(request, "ingest", limit=10, window_s=60):
-        raise gr.Error("Too many requests, try again shortly.")
+def _load_uploads(files: list[str]) -> list[dict] | str:
+    """Parse uploads into documents, or return a message explaining the refusal (blocking)."""
+    if len(files) > _api.settings.max_upload_files:
+        return f"At most {_api.settings.max_upload_files} files per upload."
     docs = []
     for f in files:
         suffix = Path(f).suffix.lower()
@@ -103,21 +128,29 @@ def upload_files(files: list[str], request: gr.Request) -> str:
         docs.append(doc)
     if not docs:
         return f"No supported files. Supported: {sorted(_LOADERS)}"
-    total = _engine().add_documents(docs)
+    return docs
+
+
+async def upload_files(files: list[str], admin_key: str, request: gr.Request) -> str:
+    if _rate_limited(request, "ingest", limit=10, window_s=60):
+        raise gr.Error("Too many requests, try again shortly.")
+    _require_admin(admin_key)
+    docs = await asyncio.to_thread(_load_uploads, files)
+    if isinstance(docs, str):
+        return docs
+    total = await _add_documents(docs)
     return f"Indexed {len(docs)} files, {total} chunks."
 
 
-def reset_index(admin_key: str, request: gr.Request) -> str:
-    # Wipes the (single, shared) index for every visitor — gated behind
-    # ADMIN_KEY when set; stays open if the Space owner never configured one.
-    # Rate-limited first so guessing ADMIN_KEY is throttled too, not just
-    # successful resets (an invalid-key attempt used to skip this check
-    # entirely since it raised before reaching the rate limiter).
+async def reset_index(admin_key: str, request: gr.Request) -> str:
+    # Wipes the (single, shared) index for every visitor. Rate-limited first so
+    # guessing ADMIN_KEY is throttled too, then the same admin gate as the API
+    # (refused on the Space when no ADMIN_KEY is configured).
     if _rate_limited(request, "reset", limit=5, window_s=60):
         raise gr.Error("Too many requests, try again shortly.")
-    if _ADMIN_KEY and not compare_digest(admin_key or "", _ADMIN_KEY):
-        raise gr.Error("Invalid admin key.")
-    _api.engine = RagEngine()
+    _require_admin(admin_key)
+    async with _api.index_lock:
+        _api.engine = RagEngine()
     return "Index reset."
 
 
@@ -167,15 +200,15 @@ with gr.Blocks(title="Lumen RAG") as demo:
         sample_btn = gr.Button("Load sample corpus")
         reset_btn = gr.Button("Reset index")
     if _ADMIN_KEY:
-        admin_key_box = gr.Textbox(label="Admin key (required to reset)", type="password")
+        admin_key_box = gr.Textbox(label="Admin key (required to load, upload or reset)", type="password")
     else:
         admin_key_box = gr.State("")
     upload = gr.File(label="Or upload documents", file_count="multiple")
     status = gr.Textbox(label="Index status", interactive=False)
 
-    sample_btn.click(load_sample, outputs=status)
+    sample_btn.click(load_sample, inputs=admin_key_box, outputs=status)
     reset_btn.click(reset_index, inputs=admin_key_box, outputs=status)
-    upload.upload(upload_files, inputs=upload, outputs=status)
+    upload.upload(upload_files, inputs=[upload, admin_key_box], outputs=status)
 
     gr.Markdown("---")
 

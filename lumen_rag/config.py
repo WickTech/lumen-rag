@@ -40,7 +40,17 @@ class Settings:
     contextual: bool = os.getenv("LUMEN_CONTEXTUAL", "") == "1"
     chat_model: str = os.getenv("CHAT_MODEL", "gpt-4o-mini")
     index_dir: str = os.getenv("LUMEN_INDEX_DIR", ".lumen_index")
+    # Guards /ingest, /ingest/upload, /ingest/sample and /reset (X-Admin-Key header).
     admin_key: str = os.getenv("ADMIN_KEY", "")
+    # Hugging Face Spaces set SPACE_ID. Hosted without ADMIN_KEY, the mutating routes refuse (403).
+    hosted: bool = bool(os.getenv("SPACE_ID"))
+    # "1" loads the bundled sample corpus at startup when the index is empty; on by default when hosted.
+    seed_sample: bool = os.getenv("LUMEN_SEED_SAMPLE", "1" if os.getenv("SPACE_ID") else "") == "1"
+    # Ingestion bounds: bytes per uploaded file, files per upload, chunk size in words.
+    max_upload_bytes: int = int(os.getenv("LUMEN_MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
+    max_upload_files: int = int(os.getenv("LUMEN_MAX_UPLOAD_FILES", "20"))
+    min_chunk_size: int = int(os.getenv("LUMEN_MIN_CHUNK_SIZE", "20"))
+    max_chunk_size: int = int(os.getenv("LUMEN_MAX_CHUNK_SIZE", "1000"))
     # Cross-encoder model for second-stage reranking, e.g. "BAAI/bge-reranker-base".
     # Empty disables reranking (requires the [rerank] extra when set).
     reranker_model: str = os.getenv("LUMEN_RERANKER", "")

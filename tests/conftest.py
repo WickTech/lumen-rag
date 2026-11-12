@@ -21,6 +21,10 @@ config.settings.reader_model = ""
 config.settings.reader_answers = False
 config.settings.contextual = False
 config.settings.decompose = False
+# Ingestion stays open (local mode) unless a test opts in to ADMIN_KEY or hosted mode.
+config.settings.admin_key = ""
+config.settings.hosted = False
+config.settings.seed_sample = False
 
 
 @pytest.fixture(autouse=True)
@@ -36,3 +40,6 @@ def _force_offline(monkeypatch):
     monkeypatch.setattr(config.settings, "reader_answers", False, raising=False)
     monkeypatch.setattr(config.settings, "contextual", False, raising=False)
     monkeypatch.setattr(config.settings, "decompose", False, raising=False)
+    monkeypatch.setattr(config.settings, "admin_key", "", raising=False)
+    monkeypatch.setattr(config.settings, "hosted", False, raising=False)
+    monkeypatch.setattr(config.settings, "seed_sample", False, raising=False)

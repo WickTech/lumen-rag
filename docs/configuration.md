@@ -53,7 +53,11 @@ another embedder or corpus with `scripts/benchmark.py --abstain`.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ADMIN_KEY` | — | When set, `/reset` requires it in the `X-Admin-Key` header. Set it on any public deployment. |
+| `ADMIN_KEY` | — | When set, `/ingest`, `/ingest/upload`, `/ingest/sample` and `/reset` require it in the `X-Admin-Key` header (401 otherwise). Unset: open locally, refused with 403 when `SPACE_ID` is set (Hugging Face Spaces). `GET /health` reports `ingest_locked`. |
+| `LUMEN_SEED_SAMPLE` | on if `SPACE_ID` is set | `1` loads the bundled sample corpus at startup when the index is empty. |
+| `LUMEN_MAX_UPLOAD_BYTES` | `10485760` | Per-file cap for `/ingest/upload` (413 past it). |
+| `LUMEN_MAX_UPLOAD_FILES` | `20` | Files per `/ingest/upload` request (413 past it). |
+| `LUMEN_MIN_CHUNK_SIZE` / `LUMEN_MAX_CHUNK_SIZE` | `20` / `1000` | Allowed `chunk_size` (words) on the ingest routes; `overlap` must be `0..chunk_size-1` (422 otherwise). |
 | `LUMEN_TRACING` | — | `console` or `otlp` OpenTelemetry export (`tracing` extra). |
 | `LUMEN_TRACE_CONTENT` | — | `1` also records question and answer text on spans (off by default for privacy). |
 

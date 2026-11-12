@@ -30,6 +30,7 @@
   .metric .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; margin-top:2px; }
   .status { font-size:13px; color:var(--muted); margin-top:8px; }
   .status.err { color:#f87171; }
+  .status.locked { color:var(--text); }
   footer { text-align:center; color:var(--muted); font-size:12px; padding:24px; }
   a { color:var(--accent); }
 </style>
@@ -50,7 +51,7 @@
       <input type="file" id="fileInput" multiple accept=".txt,.md,.html,.htm,.pdf,.docx">
       <button id="uploadBtn" class="ghost">Upload</button>
       <button id="resetBtn" class="ghost">Reset index</button>
-      <input type="text" id="adminKey" placeholder="Admin key (only needed if ADMIN_KEY is set)" style="max-width:280px">
+      <input type="text" id="adminKey" placeholder="Admin key (needed if ADMIN_KEY is set)" style="max-width:280px">
     </div>
     <div class="status" id="ingestStatus"></div>
   </div>
@@ -88,6 +89,24 @@
 <script>
 const $ = id => document.getElementById(id);
 
+// Ingest and reset need X-Admin-Key when the server has ADMIN_KEY set.
+const adminHeaders = () => ({ 'X-Admin-Key': $('adminKey').value });
+const ingestControls = ['loadSample', 'fileInput', 'uploadBtn', 'resetBtn'];
+let ingestLocked = false;
+
+// Locked (GET /health ingest_locked): visitors cannot change the shared index. The
+// controls stay disabled until an admin key is typed, instead of failing with an error.
+function applyIngestLock() {
+  const disabled = ingestLocked && !$('adminKey').value;
+  for (const id of ingestControls) $(id).disabled = disabled;
+  if (ingestLocked && !$('ingestStatus').textContent) {
+    $('ingestStatus').textContent = 'Ingestion is locked on the public demo: the sample corpus is preloaded, ' +
+      'so go straight to Ask. Run Lumen locally to index your own documents.';
+    $('ingestStatus').className = 'status locked';
+  }
+}
+$('adminKey').addEventListener('input', applyIngestLock);
+
 async function api(path, opts) {
   const res = await fetch(path, opts);
   const body = await res.json().catch(() => ({}));
@@ -99,7 +118,7 @@ $('loadSample').onclick = async () => {
   $('ingestStatus').textContent = 'Loading sample corpus…';
   $('ingestStatus').className = 'status';
   try {
-    const r = await api('/ingest/sample', { method: 'POST' });
+    const r = await api('/ingest/sample', { method: 'POST', headers: adminHeaders() });
     $('ingestStatus').textContent = `Indexed ${r.files_indexed} file(s) → ${r.chunks_indexed} chunks.`;
   } catch (e) {
     $('ingestStatus').textContent = 'Error: ' + e.message;
@@ -115,7 +134,7 @@ $('uploadBtn').onclick = async () => {
   $('ingestStatus').textContent = 'Uploading + indexing…';
   $('ingestStatus').className = 'status';
   try {
-    const r = await api('/ingest/upload', { method: 'POST', body: fd });
+    const r = await api('/ingest/upload', { method: 'POST', body: fd, headers: adminHeaders() });
     $('ingestStatus').textContent = `Indexed ${r.files_indexed} file(s) → ${r.chunks_indexed} chunks.`;
   } catch (e) {
     $('ingestStatus').textContent = 'Error: ' + e.message;
@@ -124,8 +143,15 @@ $('uploadBtn').onclick = async () => {
 };
 
 $('resetBtn').onclick = async () => {
-  await api('/reset', { method: 'POST', headers: { 'X-Admin-Key': $('adminKey').value } });
+  try {
+    await api('/reset', { method: 'POST', headers: adminHeaders() });
+  } catch (e) {
+    $('ingestStatus').textContent = 'Error: ' + e.message;
+    $('ingestStatus').className = 'status err';
+    return;
+  }
   $('ingestStatus').textContent = 'Index cleared.';
+  $('ingestStatus').className = 'status';
   $('answer').textContent = 'Answer will appear here.';
   $('citations').innerHTML = '';
   $('confidence').textContent = '';
@@ -176,6 +202,8 @@ api('/health').then(h => {
   if (h.reader) info += ` · reader ${h.reader.split('/').pop()} checks each answer (threshold ${h.reader_threshold})`;
   $('engineInfo').textContent = info;
   if (h.embedder !== 'HashingEmbedder') $('mode').value = 'vector';
+  ingestLocked = Boolean(h.ingest_locked);
+  applyIngestLock();
 }).catch(() => {});
 
 $('question').addEventListener('keydown', e => { if (e.key === 'Enter') $('askBtn').click(); });
